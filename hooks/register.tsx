@@ -233,7 +233,10 @@ export const register: Register = (on, options) => {
     await $.ui.open({ id: PANE, title: 'Sidequest', focus: true, rows: ROWS })
     isOpen = true
     return {
-      text: 'Sidequest is open. Press ctrl+x tab to put the keyboard in it, Esc to give it back. Then: w a s d slides, t is the word game, x closes.',
+      text:
+        'Sidequest is open. Click the pane to play, or press ctrl+x and then tab (two presses, not one; ' +
+        'some terminals take ctrl+x for themselves). Esc gives the prompt back. Then: w a s d slides, ' +
+        't is the word game, x closes.',
     }
   }).catch(($, e, next) => ({
     text: `sidequest could not open: ${next.error.message ?? 'unknown error'}`,
@@ -361,7 +364,7 @@ export const register: Register = (on, options) => {
             <Text> </Text>
             <Button key="close" hotkey="x" plain dimColor label="close" onPress={onClose} />
           </Box>
-          <Text dimColor>{e.props.isFocused ? 'Esc to the prompt' : 'ctrl+x tab to play'}</Text>
+          <Text dimColor>{e.props.isFocused ? 'Esc gives the prompt back' : 'click here, or ctrl+x then tab, to play'}</Text>
         </Box>
       )
     }
@@ -412,7 +415,7 @@ export const register: Register = (on, options) => {
             <Text> </Text>
             <Button key="close" hotkey="x" plain dimColor label="close" onPress={onClose} />
           </Box>
-          <Text dimColor>{e.props.isFocused ? 'Esc to the prompt' : 'ctrl+x tab to play'}</Text>
+          <Text dimColor>{e.props.isFocused ? 'Esc gives the prompt back' : 'click here, or ctrl+x then tab, to play'}</Text>
         </Box>
       )
     }

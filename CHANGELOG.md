@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3 — 2026-11-18
+
+- The pane says `click here, or ctrl+x then tab, to play`. It had said
+  `ctrl+x tab`, which reads as one combination and is two presses, and said
+  nothing of the click that does the same thing — the way in where a terminal
+  keeps ctrl+x for itself, as a JetBrains one does.
+
 ## 0.1.2 — 2026-11-18
 
 - The pane asks for the rows 2048 needs whole. Opened inline above the prompt

@@ -223,7 +223,7 @@ test('each game fits a short inline pane and says how to reach it', async ($, on
     const ui = await $.ui.mount({ ...PANE, surface: 'terminal', props: { ...PANE.props, isFocused: focused } })
 
     // the way in and the way out are on screen, not only in the README
-    const hint = await ui.find({ type: 'Text', text: focused ? /Esc to the prompt/ : /ctrl\+x tab/ })
+    const hint = await ui.find({ type: 'Text', text: focused ? /Esc gives the prompt/ : /ctrl\+x then tab/ })
     expect(hint).toBeDefined()
 
     // the controls are drawn too, not pushed below what the pane can show
@@ -244,7 +244,7 @@ test('the command says how to take the keyboard, never that it has it', async ($
   const ran = await $.command.run(RUN)
 
   // focus is refused over a composer holding the command that was just typed
-  expect(ran.text).toContain('ctrl+x tab')
+  expect(ran.text).toContain('ctrl+x and then tab')
   expect(ran.text).not.toContain('has the keyboard')
 })
 

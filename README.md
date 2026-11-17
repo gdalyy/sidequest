@@ -141,7 +141,7 @@ Your best score is kept across sessions.
 | `r` | new board |
 | `x` | close the pane |
 | `Esc` | give the keyboard back to the prompt |
-| `ctrl+x` `tab` | take the keyboard back into the pane |
+| click, or `ctrl+x` then `tab` | take the keyboard back into the pane |
 
 W-A-S-D is a shape, not a set of letters: the same four keys under the same
 fingers are Z-Q-S-D on an AZERTY board, where A and Q, W and Z are swapped.
@@ -184,9 +184,14 @@ it, then `/reload-plugins` in a running session.
 
 ## First run
 
-Type `/sidequest`. The pane opens beside the transcript, and **ctrl+x tab**
-puts the keyboard in it; **Esc** gives the prompt back. The pane's last line
-always says which of the two to press, so neither has to be remembered.
+Type `/sidequest`. The pane opens beside the transcript; **click it**, or
+press **ctrl+x** and then **tab**, to put the keyboard in it. **Esc** gives
+the prompt back. The pane's last line always says which of the two to do, so
+neither has to be remembered.
+
+`ctrl+x tab` is a chord of two presses rather than one combination: ctrl+x,
+released, then tab. Some terminals — a JetBrains one among them — take ctrl+x
+for themselves, and there a click is the way in.
 
 It does not take the keyboard by itself, and cannot: a pane is granted focus
 only over an empty composer, and typing `/sidequest` is text in the composer.
