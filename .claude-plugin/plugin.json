@@ -1,0 +1,52 @@
+{
+  "name": "sidequest",
+  "displayName": "Sidequest",
+  "version": "0.1.0",
+  "description": "2048 and a Wordle built from your own code, in a pane beside the chat, opened while Claude works and switched with one key.",
+  "author": {
+    "name": "Ghaith Daly"
+  },
+  "homepage": "https://github.com/gdalyy/sidequest",
+  "repository": "https://github.com/gdalyy/sidequest",
+  "license": "MIT",
+  "types": "./types/index.d.ts",
+  "keywords": [
+    "game",
+    "2048",
+    "wordle",
+    "pane",
+    "arcade",
+    "waiting"
+  ],
+  "userConfig": {
+    "after_seconds": {
+      "title": "Open after",
+      "type": "number",
+      "description": "Seconds a turn must run before the pane opens by itself; 0 never opens it unasked",
+      "default": 20
+    },
+    "mode": {
+      "title": "Game",
+      "type": "string",
+      "description": "Which game the pane opens on; t switches between them at any time",
+      "options": [
+        "2048",
+        "codele"
+      ],
+      "default": "2048"
+    },
+    "word_length": {
+      "title": "Word length",
+      "type": "string",
+      "description": "How many letters the word game asks for. mixed varies it each round, which uses the most of a project's vocabulary. A length the project has too few words for falls back to the one it has most of.",
+      "options": [
+        "4",
+        "5",
+        "6",
+        "7",
+        "mixed"
+      ],
+      "default": "5"
+    }
+  }
+}

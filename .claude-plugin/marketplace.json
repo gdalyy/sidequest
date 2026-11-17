@@ -1,0 +1,12 @@
+{
+  "name": "sidequest",
+  "owner": { "name": "Ghaith Daly" },
+  "description": "Games for the minutes Claude Code spends working: 2048, and a word game whose answers are your own project's vocabulary.",
+  "plugins": [
+    {
+      "name": "sidequest",
+      "source": "./",
+      "description": "A pane beside the chat with 2048 and a Wordle built from the words your repository actually uses."
+    }
+  ]
+}
