@@ -184,8 +184,14 @@ it, then `/reload-plugins` in a running session.
 
 ## First run
 
-Type `/sidequest`. The pane opens beside the transcript with the keyboard
-already in it, so you can play at once; **Esc** gives the prompt back.
+Type `/sidequest`. The pane opens beside the transcript, and **ctrl+x tab**
+puts the keyboard in it; **Esc** gives the prompt back. The pane's last line
+always says which of the two to press, so neither has to be remembered.
+
+It does not take the keyboard by itself, and cannot: a pane is granted focus
+only over an empty composer, and typing `/sidequest` is text in the composer.
+That rule is what stops a pane opening mid-sentence and swallowing it, which
+is worth more than saving a keypress here.
 
 After that it opens by itself, twenty seconds into any turn that runs that
 long, and without taking the keyboard — what you are typing still reaches the

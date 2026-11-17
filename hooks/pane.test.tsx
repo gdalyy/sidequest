@@ -233,3 +233,17 @@ test('each game fits a short inline pane and says how to reach it', async ($, on
     await ui.unmount()
   }
 })
+
+test('the command says how to take the keyboard, never that it has it', async ($, on) => {
+  on('command.register', () => ({ value: { command: 'sidequest' } }))
+  on('store.get', () => ({ value: 0 }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  const ran = await $.command.run(RUN)
+
+  // focus is refused over a composer holding the command that was just typed
+  expect(ran.text).toContain('ctrl+x tab')
+  expect(ran.text).not.toContain('has the keyboard')
+})

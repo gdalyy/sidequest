@@ -222,10 +222,14 @@ export const register: Register = (on, options) => {
   })
 
   on('command.run', { command: COMMAND }, async $ => {
+    // `focus` is a request the surface grants only over an empty composer,
+    // and typing /sidequest is text in the composer, so a pane opened this way
+    // does not take the keyboard. Ask anyway — another way in may be able to —
+    // and say how to take it rather than claiming it was taken.
     await $.ui.open({ id: PANE, title: 'Sidequest', focus: true })
     isOpen = true
     return {
-      text: 'Sidequest is open, and has the keyboard: w a s d slides, t is the word game, x closes. Esc gives the prompt back, ctrl+x tab takes the keyboard again.',
+      text: 'Sidequest is open. Press ctrl+x tab to put the keyboard in it, Esc to give it back. Then: w a s d slides, t is the word game, x closes.',
     }
   }).catch(($, e, next) => ({
     text: `sidequest could not open: ${next.error.message ?? 'unknown error'}`,

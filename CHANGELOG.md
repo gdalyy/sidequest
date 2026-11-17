@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.1 — 2026-11-18
+
+- Each game is drawn to fit the rows a pane is given. Both were taller than an
+  inline pane, so the header and most of the board scrolled out of sight and
+  the controls fell off the bottom.
+- The pane's last line says which key reaches it: `ctrl+x tab` while the prompt
+  holds the keyboard, `Esc` while the pane does.
+- `/sidequest` no longer claims to have taken the keyboard. It cannot: a pane
+  is granted focus only over an empty composer, and typing the command is text
+  in the composer.
+- A window too narrow to seat an unasked pane is said once, with the engine's
+  own reason, rather than looking like a plugin that does nothing.
+
 ## 0.1.0 — 2026-11-18
 
 - A pane beside the chat, opened by itself once a turn has run 20 seconds and
