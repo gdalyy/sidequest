@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.2 — 2026-11-18
+
+- The pane asks for the rows 2048 needs whole. Opened inline above the prompt
+  it was given about six, so nine rows of board could not fit however compact
+  the rest became.
+- Where the layout cannot spare them anyway, the pane sheds what is not the
+  game — the note about AZERTY keys goes first — rather than letting the board
+  scroll out of sight.
+
 ## 0.1.1 — 2026-11-18
 
 - Each game is drawn to fit the rows a pane is given. Both were taller than an

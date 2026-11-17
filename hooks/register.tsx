@@ -19,6 +19,10 @@ import { canMove, draw, highest, newBoard, play } from './g2048'
 import type { Board, Direction, Grade, WordSource } from '../types'
 
 const PANE = 'sidequest'
+// What 2048 needs whole: a header, nine rows of board, two rows of keys and
+// the line saying how to reach the pane. Inline, a pane is as tall as it asks
+// for, up to what the layout spares; docked it is ignored.
+const ROWS = 14
 const COMMAND = 'sidequest'
 const EMPTY_BOARD: Board = { cells: new Array(16).fill(0), score: 0, best: 0, isOver: false }
 const KEYS: Record<string, Direction> = { w: 'up', s: 'down', a: 'left', d: 'right' }
@@ -226,7 +230,7 @@ export const register: Register = (on, options) => {
     // and typing /sidequest is text in the composer, so a pane opened this way
     // does not take the keyboard. Ask anyway — another way in may be able to —
     // and say how to take it rather than claiming it was taken.
-    await $.ui.open({ id: PANE, title: 'Sidequest', focus: true })
+    await $.ui.open({ id: PANE, title: 'Sidequest', focus: true, rows: ROWS })
     isOpen = true
     return {
       text: 'Sidequest is open. Press ctrl+x tab to put the keyboard in it, Esc to give it back. Then: w a s d slides, t is the word game, x closes.',
@@ -256,7 +260,7 @@ export const register: Register = (on, options) => {
       if (seconds >= after) {
         // no `focus`: the keyboard stays with the prompt until Tab is pressed,
         // so an unasked pane never swallows what is being typed
-        const opened = await $.ui.open({ id: PANE, title: 'Sidequest' })
+        const opened = await $.ui.open({ id: PANE, title: 'Sidequest', rows: ROWS })
         isOpen = opened.isPlaced
         if (!opened.isPlaced && !hasSaidNarrow) {
           hasSaidNarrow = true
@@ -270,6 +274,10 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Button, Input, Text } = $.ui.resolve(e)
+    // the room the body actually has; a pane that asked for more than the
+    // layout could spare still has to draw inside what it was given
+    const room = e.props.scroll?.bodyRows ?? ROWS
+    const hasSpareRow = room >= ROWS
     const working = await read($, isWorking)
     const n = await read($, steps)
     // the header doubles as the progress line, so a player need not leave the
@@ -388,10 +396,10 @@ export const register: Register = (on, options) => {
           {/*
             W-A-S-D is a shape on a QWERTY board, not a set of letters: the
             same four keys under the same fingers are Z-Q-S-D on AZERTY, where
-            A and Q, W and Z are swapped. Both are bound, so neither layout has
-            to be told about the other, and S and D are shared.
+            A and Q, W and Z are swapped. Both are bound either way; this row
+            only says so, and is the first thing to go when the room is short.
           */}
-          <Box>
+          <Box key="azerty" display={hasSpareRow ? 'flex' : 'none'}>
             <Text dimColor>azerty </Text>
             <Button key="up-az" hotkey="z" plain dimColor label="up" onPress={onSlide('up')} />
             <Text> </Text>

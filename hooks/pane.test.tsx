@@ -247,3 +247,32 @@ test('the command says how to take the keyboard, never that it has it', async ($
   expect(ran.text).toContain('ctrl+x tab')
   expect(ran.text).not.toContain('has the keyboard')
 })
+
+test('a short pane sheds its notes before it sheds the board', async ($, on) => {
+  on('command.register', () => ({ value: { command: 'sidequest' } }))
+  on('store.get', () => ({ value: 0 }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+
+  // roomy: the azerty note is drawn
+  const roomy = await $.ui.mount({
+    ...PANE, surface: 'terminal',
+    props: { ...PANE.props, placement: 'inline', scroll: { offset: 0, bodyRows: 20 } },
+  })
+  expect((await roomy.find({ type: 'Box', key: 'azerty' }))?.props?.display).toBe('flex')
+  await roomy.unmount()
+
+  // cramped: the note goes, and the board and its keys stay
+  const tight = await $.ui.mount({
+    ...PANE, surface: 'terminal',
+    props: { ...PANE.props, placement: 'inline', scroll: { offset: 0, bodyRows: 8 } },
+  })
+  expect((await tight.find({ type: 'Box', key: 'azerty' }))?.props?.display).toBe('none')
+  expect(await tight.find({ type: 'Text', text: /┌─/ })).toBeDefined()
+  for (const key of ['up', 'left', 'down', 'right']) {
+    expect(await tight.find({ type: 'Button', key })).toBeDefined()
+  }
+  await tight.unmount()
+})
