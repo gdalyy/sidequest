@@ -137,9 +137,9 @@ Your best score is kept across sessions.
 | `w` `a` `s` `d` | slide (2048) |
 | `z` `q` | up and left on an AZERTY board |
 | type + `enter` | guess (codele) |
-| `t` | switch game |
+| `t` (2048) · `1` (word game) | switch game |
 | `r` | new board |
-| `x` | close the pane |
+| `x` (2048) · `2` (word game) | close the pane |
 | `Esc` | give the keyboard back to the prompt |
 | click, or `ctrl+x` then `tab` | take the keyboard back into the pane |
 
@@ -190,8 +190,13 @@ the prompt back. The pane's last line always says which of the two to do, so
 neither has to be remembered.
 
 `ctrl+x tab` is a chord of two presses rather than one combination: ctrl+x,
-released, then tab. Some terminals — a JetBrains one among them — take ctrl+x
-for themselves, and there a click is the way in.
+released, then tab, **one straight after the other** — the chord lapses if you
+pause between them, which looks exactly like a key that does nothing. Some
+terminals, a JetBrains one among them, may take ctrl+x for themselves.
+
+In the word game every letter is typed into the field, so no letter can be a
+control as well: `1` switches to 2048 and `2` closes. In 2048 nothing is
+typed, so its controls keep their letters.
 
 It does not take the keyboard by itself, and cannot: a pane is granted focus
 only over an empty composer, and typing `/sidequest` is text in the composer.

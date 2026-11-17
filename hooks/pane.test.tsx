@@ -129,6 +129,28 @@ test('the word pane draws coloured tiles and takes a guess', { options: { mode: 
   await ui.unmount()
 })
 
+test('no control of the word game answers to a letter, since letters are typed', { options: { mode: 'codele' } }, async ($, on) => {
+  on('command.register', () => ({ value: { command: 'sidequest' } }))
+  on('store.get', () => ({ value: 0 }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('process.run', () => ({
+    value: { exitCode: 0, stdout: 'a.ts\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
+  }))
+  on('fs.read', () => ({ value: 'parse table fence glyph probe parse table fence glyph probe' }))
+
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+
+  for (const key of ['swap', 'close']) {
+    const hotkey = (await ui.find({ type: 'Button', key }))?.props?.hotkey
+    expect(hotkey).toBeDefined()
+    // a letter here would be swallowed by, or would swallow, a guess
+    expect(/^[0-9]$/.test(String(hotkey))).toBe(true)
+  }
+  await ui.unmount()
+})
+
 test('t switches the pane between the two games', { options: { mode: '2048' } }, async ($, on) => {
   on('command.register', () => ({ value: { command: 'sidequest' } }))
   on('store.get', () => ({ value: 0 }))

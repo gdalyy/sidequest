@@ -234,9 +234,9 @@ export const register: Register = (on, options) => {
     isOpen = true
     return {
       text:
-        'Sidequest is open. Click the pane to play, or press ctrl+x and then tab (two presses, not one; ' +
-        'some terminals take ctrl+x for themselves). Esc gives the prompt back. Then: w a s d slides, ' +
-        't is the word game, x closes.',
+        'Sidequest is open. Press ctrl+x and then tab to play — two presses, quickly, one after the other: ' +
+        'the chord lapses if you pause. Esc gives the prompt back. In 2048: w a s d slide, t is the word ' +
+        'game, x closes. In the word game every letter is typed, so 1 and 2 are the controls there.',
     }
   }).catch(($, e, next) => ({
     text: `sidequest could not open: ${next.error.message ?? 'unknown error'}`,
@@ -360,11 +360,18 @@ export const register: Register = (on, options) => {
             onSubmit={(value: string) => void sayWord($, value, letters)}
           />
           <Box>
-            <Button key="swap" hotkey="t" plain dimColor label="2048" onPress={onSwitch} />
+            {/*
+              Every letter is typed into the field above, so no letter can be a
+              control here as well: pressing `t` to spell a word must not swap
+              the game out from under it. Digits are never typed, so they are.
+            */}
+            <Button key="swap" hotkey="1" plain dimColor label="2048" onPress={onSwitch} />
             <Text> </Text>
-            <Button key="close" hotkey="x" plain dimColor label="close" onPress={onClose} />
+            <Button key="close" hotkey="2" plain dimColor label="close" onPress={onClose} />
           </Box>
-          <Text dimColor>{e.props.isFocused ? 'Esc gives the prompt back' : 'click here, or ctrl+x then tab, to play'}</Text>
+          <Text dimColor>
+            {e.props.isFocused ? 'Esc gives the prompt back' : 'click here, or ctrl+x then tab (quickly), to play'}
+          </Text>
         </Box>
       )
     }
@@ -415,7 +422,9 @@ export const register: Register = (on, options) => {
             <Text> </Text>
             <Button key="close" hotkey="x" plain dimColor label="close" onPress={onClose} />
           </Box>
-          <Text dimColor>{e.props.isFocused ? 'Esc gives the prompt back' : 'click here, or ctrl+x then tab, to play'}</Text>
+          <Text dimColor>
+            {e.props.isFocused ? 'Esc gives the prompt back' : 'click here, or ctrl+x then tab (quickly), to play'}
+          </Text>
         </Box>
       )
     }

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.4 — 2026-11-18
+
+- The word game's controls move to `1` and `2`. They were `t` and `x`, which
+  are letters, and every letter there is typed into the guess: spelling a word
+  holding a t swapped the game out from under it.
+- The hint says the chord must be two quick presses. Driven in a real terminal,
+  `ctrl+x` then `tab` focuses the pane only when the second key follows at
+  once; a pause lets the chord lapse, which looks like a key doing nothing.
+
 ## 0.1.3 — 2026-11-18
 
 - The pane says `click here, or ctrl+x then tab, to play`. It had said
