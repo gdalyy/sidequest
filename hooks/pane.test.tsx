@@ -206,3 +206,30 @@ test('a window too narrow for an unasked pane is said once, not silently', async
   // and it passes on the engine's own reason rather than guessing at one
   expect(said[0]).toContain('144 columns')
 })
+
+test('each game fits a short inline pane and says how to reach it', async ($, on) => {
+  on('command.register', () => ({ value: { command: 'sidequest' } }))
+  on('store.get', () => ({ value: 0 }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('process.run', () => ({
+    value: { exitCode: 0, stdout: 'a.ts\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
+  }))
+  on('fs.read', () => ({ value: 'parse table fence glyph probe parse table fence glyph probe' }))
+
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+
+  for (const focused of [false, true]) {
+    const ui = await $.ui.mount({ ...PANE, surface: 'terminal', props: { ...PANE.props, isFocused: focused } })
+
+    // the way in and the way out are on screen, not only in the README
+    const hint = await ui.find({ type: 'Text', text: focused ? /Esc to the prompt/ : /ctrl\+x tab/ })
+    expect(hint).toBeDefined()
+
+    // the controls are drawn too, not pushed below what the pane can show
+    expect(await ui.find({ type: 'Button', key: 'swap' })).toBeDefined()
+    expect(await ui.find({ type: 'Button', key: 'close' })).toBeDefined()
+
+    await ui.unmount()
+  }
+})

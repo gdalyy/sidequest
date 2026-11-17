@@ -224,7 +224,9 @@ export const register: Register = (on, options) => {
   on('command.run', { command: COMMAND }, async $ => {
     await $.ui.open({ id: PANE, title: 'Sidequest', focus: true })
     isOpen = true
-    return { text: 'Sidequest is open: w a s d to slide, t for the word game, Esc back to the prompt.' }
+    return {
+      text: 'Sidequest is open, and has the keyboard: w a s d slides, t is the word game, x closes. Esc gives the prompt back, ctrl+x tab takes the keyboard again.',
+    }
   }).catch(($, e, next) => ({
     text: `sidequest could not open: ${next.error.message ?? 'unknown error'}`,
   }))
@@ -298,10 +300,9 @@ export const register: Register = (on, options) => {
 
       return (
         <Box flexDirection="column">
-          <Text dimColor>{header}</Text>
-          <Text> </Text>
-          <Text dimColor>{`guess ${Math.min(word.guesses.length + 1, TRIES)} of ${TRIES}`}</Text>
-          <Text> </Text>
+          <Text dimColor>
+            {`${header} · guess ${Math.min(word.guesses.length + 1, TRIES)} of ${TRIES}`}
+          </Text>
           {word.guesses.map((g, row) => (
             <Box>
               {Array.from({ length: word.length }, (_, i) => i).map(i => {
@@ -314,10 +315,11 @@ export const register: Register = (on, options) => {
               })}
             </Box>
           ))}
-          {Array.from({ length: Math.max(0, TRIES - word.guesses.length) }).map(() => (
-            <Text dimColor>{' · '.repeat(word.length)}</Text>
+          {Array.from({ length: Math.max(0, TRIES - word.guesses.length) }, (_, i) => i).map(i => (
+            <Box key={`empty-${i}`}>
+              <Text dimColor>{' · '.repeat(word.length)}</Text>
+            </Box>
           ))}
-          <Text> </Text>
           {word.isDone ? (
             <Text color={word.isWon ? 'text-success' : 'text-danger'}>
               {word.isWon
@@ -336,7 +338,6 @@ export const register: Register = (on, options) => {
               ))}
             </Box>
           )}
-          <Text> </Text>
           <Input
             key="guess"
             autoFocus
@@ -348,6 +349,7 @@ export const register: Register = (on, options) => {
             <Text> </Text>
             <Button key="close" hotkey="x" plain dimColor label="close" onPress={onClose} />
           </Box>
+          <Text dimColor>{e.props.isFocused ? 'Esc to the prompt' : 'ctrl+x tab to play'}</Text>
         </Box>
       )
     }
@@ -359,18 +361,16 @@ export const register: Register = (on, options) => {
 
       return (
         <Box flexDirection="column">
-          <Text dimColor>{header}</Text>
-          <Text> </Text>
-          <Text>
-            score {b.score}
-            {b.best > 0 ? `   best ${b.best}` : ''}
-            {top >= 64 ? `   tile ${top}` : ''}
+          <Text dimColor>
+            {`${header} · score ${b.score}`}
+            {b.best > 0 ? ` · best ${b.best}` : ''}
+            {top >= 64 ? ` · tile ${top}` : ''}
           </Text>
-          <Text> </Text>
-          {draw(b.cells).map(row => (
-            <Text>{row}</Text>
+          {draw(b.cells).map((row, i) => (
+            <Box key={`row-${i}`}>
+              <Text>{row}</Text>
+            </Box>
           ))}
-          <Text> </Text>
           {b.isOver && <Text color="text-danger">No moves left. Press r for a new board.</Text>}
           <Box>
             <Button key="up" hotkey="w" plain label="up" onPress={onSlide('up')} />
@@ -400,9 +400,9 @@ export const register: Register = (on, options) => {
             <Text> </Text>
             <Button key="close" hotkey="x" plain dimColor label="close" onPress={onClose} />
           </Box>
+          <Text dimColor>{e.props.isFocused ? 'Esc to the prompt' : 'ctrl+x tab to play'}</Text>
         </Box>
       )
     }
-
   })
 }

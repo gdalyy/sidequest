@@ -140,7 +140,8 @@ Your best score is kept across sessions.
 | `t` | switch game |
 | `r` | new board |
 | `x` | close the pane |
-| `Esc` | back to the prompt |
+| `Esc` | give the keyboard back to the prompt |
+| `ctrl+x` `tab` | take the keyboard back into the pane |
 
 W-A-S-D is a shape, not a set of letters: the same four keys under the same
 fingers are Z-Q-S-D on an AZERTY board, where A and Q, W and Z are swapped.
