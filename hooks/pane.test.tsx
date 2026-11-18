@@ -33,8 +33,9 @@ test('the game pane draws a board and slides when w a s d are pressed', async ($
 
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
   const ran = await $.command.run(RUN)
-  // the keys live in the pane; the command says only how to reach it
-  expect(ran.text).toContain('ctrl+x then tab')
+  // the command answers with how to play, and never sends anyone chasing focus
+  expect(ran.text).toContain('/sq')
+  expect(ran.text).not.toContain('ctrl+x')
 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
 
@@ -45,20 +46,15 @@ test('the game pane draws a board and slides when w a s d are pressed', async ($
     expect(await ui.find({ type: 'Button', key })).toBeDefined()
   }
 
-  // the same four keys under the same fingers on an AZERTY board
-  expect(await ui.find({ type: 'Button', key: 'up-az' })).toBeDefined()
-  expect(await ui.find({ type: 'Button', key: 'left-az' })).toBeDefined()
+  // the AZERTY spelling is said, not bound
+  expect(await ui.find({ type: 'Text', text: /z q s d/ })).toBeDefined()
 
-  // no two controls of this pane answer to one key
-  const bound = ['up', 'left', 'down', 'right', 'up-az', 'left-az', 'new', 'swap', 'close']
-  const keys: string[] = []
-  for (const key of bound) {
+  // and not one control answers to a key — see the test below for why
+  for (const key of ['up', 'left', 'down', 'right', 'new', 'swap', 'close']) {
     const found = await ui.find({ type: 'Button', key })
     expect(found).toBeDefined()
-    const hotkey = (found as { props?: { hotkey?: string } })?.props?.hotkey
-    if (hotkey) keys.push(hotkey)
+    expect((found as { props?: { hotkey?: string } })?.props?.hotkey).toBeUndefined()
   }
-  expect(new Set(keys).size).toBe(keys.length)
 
   // a new board holds two tiles; after a slide it still holds at least two
   const tiles = (text: string) => (text.match(/\b(2|4|8|16|32)\b/g) ?? []).length
@@ -130,7 +126,7 @@ test('the word pane draws coloured tiles and takes a guess', { options: { mode: 
   await ui.unmount()
 })
 
-test('no control of either game answers to a letter', { options: { mode: 'codele' } }, async ($, on) => {
+test('no control of either game answers to any key at all', { options: { mode: 'codele' } }, async ($, on) => {
   on('command.register', () => ({ value: { command: 'sidequest' } }))
   on('store.get', () => ({ value: 0 }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
@@ -143,11 +139,15 @@ test('no control of either game answers to a letter', { options: { mode: 'codele
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
 
+  // A hotkey here is a key taken out of the terminal's mouth, and the pane
+  // has no way to know what the person meant by it. `2` meant close, and on
+  // an AZERTY board a digit needs shift: shift+2 while reaching for the other
+  // game shut the pane, and the numeric keypad did it too. A letter is no
+  // better — it is swallowed by, or swallows, a guess. So: none.
   for (const key of ['swap', 'close', 'length']) {
-    const hotkey = (await ui.find({ type: 'Button', key }))?.props?.hotkey
-    expect(hotkey).toBeDefined()
-    // a letter here would be swallowed by, or would swallow, a guess
-    expect(/^[0-9]$/.test(String(hotkey))).toBe(true)
+    const found = await ui.find({ type: 'Button', key })
+    expect(found).toBeDefined()
+    expect(found?.props?.hotkey).toBeUndefined()
   }
   await ui.unmount()
 })
@@ -230,7 +230,7 @@ test('a window too narrow for an unasked pane is said once, not silently', async
   expect(said[0]).toContain('144 columns')
 })
 
-test('each game fits a short inline pane and says how to reach it', async ($, on) => {
+test('each game fits a short inline pane and says what to type', async ($, on) => {
   on('command.register', () => ({ value: { command: 'sidequest' } }))
   on('store.get', () => ({ value: 0 }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
@@ -245,11 +245,15 @@ test('each game fits a short inline pane and says how to reach it', async ($, on
   for (const focused of [false, true]) {
     const ui = await $.ui.mount({ ...PANE, surface: 'terminal', props: { ...PANE.props, isFocused: focused } })
 
-    // the way in and the way out are on screen, not only in the README
-    const hint = await ui.find({ type: 'Text', text: focused ? /Esc gives the prompt/ : /ctrl\+x then tab/ })
-    // a click is not offered: a terminal reports none outside its fullscreen layout
-    expect(hint?.text).not.toContain('click')
+    // the pane says what to type, and says the same thing either way: nothing
+    // on screen depends on who holds the keyboard, because the answer is
+    // always the prompt
+    const hint = await ui.find({ type: 'Text', text: /\/sq close/ })
     expect(hint).toBeDefined()
+    // neither a click nor a chord is offered: a terminal reports no click
+    // outside its fullscreen layout, and the chord is refused over a composer
+    expect(hint?.text).not.toContain('click')
+    expect(hint?.text).not.toContain('ctrl+x')
 
     // the controls are drawn too, not pushed below what the pane can show
     expect(await ui.find({ type: 'Button', key: 'swap' })).toBeDefined()
@@ -259,7 +263,7 @@ test('each game fits a short inline pane and says how to reach it', async ($, on
   }
 })
 
-test('the command says how to take the keyboard, never that it has it', async ($, on) => {
+test('the command names itself as the way to play, and never chases focus', async ($, on) => {
   on('command.register', () => ({ value: { command: 'sidequest' } }))
   on('store.get', () => ({ value: 0 }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
@@ -268,11 +272,15 @@ test('the command says how to take the keyboard, never that it has it', async ($
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
   const ran = await $.command.run(RUN)
 
-  // focus is refused over a composer holding the command that was just typed
-  expect(ran.text).toContain('ctrl+x then tab')
+  // the pane never asks for the keyboard now, so nothing here may suggest it
+  expect(ran.text).not.toContain('ctrl+x')
+  expect(ran.text).not.toContain('Esc')
   expect(ran.text).not.toContain('has the keyboard')
-  // one line, not a manual: everything else is drawn where it is used
-  expect((ran.text ?? '').length).toBeLessThan(140)
+  // and the opening line is the whole manual, because there is nowhere else
+  // a player would think to look for it
+  for (const part of ['/sq w a s d', '/sq <word>', '/sq next', '/sq close']) {
+    expect(ran.text).toContain(part)
+  }
 })
 
 test('a short pane sheds its notes before it sheds the board', async ($, on) => {
@@ -305,7 +313,7 @@ test('a short pane sheds its notes before it sheds the board', async ($, on) => 
 })
 
 
-test('switching and closing answer to the same keys in both games', async ($, on) => {
+test('either game is named outright, so neither can be stranded', async ($, on) => {
   on('command.register', () => ({ value: { command: 'sidequest' } }))
   on('store.get', () => ({ value: undefined }))
   on('store.set', () => ({ value: undefined }))
@@ -319,12 +327,22 @@ test('switching and closing answer to the same keys in both games', async ($, on
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
 
-  // 2048 first: one key switches, and the same key switches back
-  expect((await ui.find({ type: 'Button', key: 'swap' }))?.props?.hotkey).toBe('1')
-  await ui.press({ key: 'swap' })
+  // `word` and `2048` name a game rather than toggling, so asking twice for
+  // the one already showing is harmless — there is no way to end up in the
+  // game you did not want and no way back
+  for (const said of ['word', 'word']) {
+    await $.command.run({ ...RUN, args: said })
+    expect(await ui.find({ type: 'Input', key: 'guess' })).toBeDefined()
+  }
+  for (const said of ['2048', '2048']) {
+    await $.command.run({ ...RUN, args: said })
+    expect(await ui.find({ type: 'Text', text: /┌─/ })).toBeDefined()
+  }
+
+  // and `next` is the toggle, for when either will do
+  await $.command.run({ ...RUN, args: 'next' })
   expect(await ui.find({ type: 'Input', key: 'guess' })).toBeDefined()
-  expect((await ui.find({ type: 'Button', key: 'swap' }))?.props?.hotkey).toBe('1')
-  await ui.press({ key: 'swap' })
+  await $.command.run({ ...RUN, args: 'next' })
   expect(await ui.find({ type: 'Text', text: /┌─/ })).toBeDefined()
 
   await ui.unmount()

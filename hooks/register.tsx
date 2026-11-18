@@ -33,10 +33,14 @@ const SAID: Record<string, Direction> = {
 }
 
 const USAGE =
-  'Play from here: /sidequest w a s d slides, /sidequest <word> guesses, ' +
-  '/sidequest 2048 or word switches, /sidequest new deals again, /sidequest 4..7 or mixed sets the length, ' +
-  '/sidequest close. Or put the keyboard in the pane with ctrl+x then tab, quickly, and play it directly.'
+  'Play from the prompt: /sq w a s d slides (a run like /sq ddss slides four times), /sq <word> guesses, ' +
+  '/sq 2048 and /sq word pick a game, /sq next swaps, /sq new deals again, /sq 4..7 or mixed sets the length, ' +
+  '/sq close. The keyboard never leaves the prompt, on any layout.'
 const COMMAND = 'sidequest'
+// The same command under a name short enough to play with: a slide costs
+// five keystrokes instead of twelve, which is the difference between a game
+// and a chore.
+const ALIAS = 'sq'
 const EMPTY_BOARD: Board = { cells: new Array(16).fill(0), score: 0, best: 0, isOver: false }
 const KEYS: Record<string, Direction> = { w: 'up', s: 'down', a: 'left', d: 'right' }
 
@@ -55,6 +59,9 @@ let files: string[] | undefined
 let root = ''
 
 let tracked: string[] | undefined
+
+/** Whether the pane is seated, so a second open is not asked for. */
+let isOpen = false
 
 /** Files that are not source but are full of a project's own words. */
 const PROSE = /\.(md|markdown|txt|rst|adoc|ya?ml|twig|html?|sql|toml|ini|cfg|po)$/i
@@ -230,6 +237,104 @@ async function slideBoard($: EngineInterface, dir: Direction): Promise<void> {
   if (next.best > had.best) await $.store.set('best', next.best).catch(() => undefined)
 }
 
+/**
+ * Everything either game can be told, answered from the prompt.
+ *
+ * Declared here rather than inside `register` because a function handed
+ * the engine interface has to be one the module can name.
+ */
+async function respond($: EngineInterface, e: { args: string }) {
+  const said = e.args.trim().toLowerCase()
+
+  if (said !== '') {
+    await $.ui.open({ id: PANE, title: 'Sidequest', rows: ROWS })
+    isOpen = true
+
+    if (said === 'close' || said === 'quit') {
+      isOpen = false
+      await $.ui.close({ id: PANE })
+      return { text: 'Sidequest closed. /sq opens it again, where you left off.' }
+    }
+    // `2048` and `word` name a game outright rather than toggling, so
+    // there is no state to lose track of: whichever is showing, either one
+    // gets you to the one you asked for.
+    if (said === '2048' || said === 'board' || (said === 'next' && (await read($, showing)) === 'codele')) {
+      await update($, showing, () => 'board')
+      return { text: 'Playing 2048. /sq w, a, s or d slides, /sq ddss slides four times, /sq word goes to the word game.' }
+    }
+    if (said === 'word' || said === 'codele' || said === 'next') {
+      await update($, showing, () => 'codele')
+      if (!(await read($, codele))) await newWord($, await read($, wanted))
+      return { text: 'Playing the word game. /sq <word> guesses, /sq 2048 goes back.' }
+    }
+    if (said === 'new') {
+      if ((await read($, showing)) === 'board') {
+        await reset($)
+        return { text: 'A new board.' }
+      }
+      await newWord($, await read($, wanted))
+      return { text: 'A new word.' }
+    }
+    if (/^(4|5|6|7|mixed)$/.test(said)) {
+      await update($, wanted, () => said)
+      await $.store.set('wanted', said).catch(() => undefined)
+      await update($, showing, () => 'codele')
+      await newWord($, said)
+      return { text: `The word game now asks for ${said === 'mixed' ? 'a varying number of' : said} letters.` }
+    }
+
+    const slide = SAID[said]
+    if (slide) {
+      await update($, showing, () => 'board')
+      await slideBoard($, slide)
+      const now = await read($, board)
+      return { text: `Slid ${slide}. Score ${now.score}${now.isOver ? ' — no moves left, /sq new deals another board.' : '.'}` }
+    }
+
+    // A run of moves, so the board can be played in bursts rather than one
+    // round trip per slide. Only while the board is showing: in the word
+    // game the same letters are a guess.
+    if ((await read($, showing)) === 'board' && /^[wasdzq]+$/.test(said)) {
+      const runs = said.split('').map(c => SAID[c]).filter(Boolean) as Direction[]
+      for (const dir of runs) await slideBoard($, dir)
+      const now = await read($, board)
+      return {
+        text: `Slid ${runs.join(', ')}. Score ${now.score}${now.isOver ? ' — no moves left, /sq new deals another board.' : '.'}`,
+      }
+    }
+
+    if (/^[a-z]+$/.test(said)) {
+      await update($, showing, () => 'codele')
+      const game = (await read($, codele)) ?? (await newWord($, await read($, wanted)), await read($, codele))
+      if (!game) return { text: 'No word to guess yet. /sq word deals one.' }
+      if (said.length !== game.word.length) {
+        return { text: `That word is ${said.length} letters; this one wants ${game.word.length}. /sq ${game.word.length} changes the length.` }
+      }
+      await sayWord($, said, await read($, wanted))
+      const after = await read($, codele)
+      if (!after) return { text: 'The guess did not land.' }
+      if (after.isDone) {
+        return {
+          text: after.isWon
+            ? `${after.word.toUpperCase()} — solved in ${after.guesses.length}. It is ${after.from} jargon. /sq new deals another.`
+            : `Out of guesses. It was ${after.word.toUpperCase()}, ${after.from} jargon. /sq new deals another.`,
+        }
+      }
+      return { text: `${grade(said, after.word).map((m, i) => `${said[i]?.toUpperCase()}${MARK[m]}`).join(' ')} — guess ${after.guesses.length + 1} of ${TRIES}.` }
+    }
+
+    return { text: `Sidequest does not know "${said}". ${USAGE}` }
+  }
+
+  // No `focus`. The pane asking for the keyboard is what made this
+  // unpredictable: the request is granted only over an empty composer, so
+  // whether the next keystroke went to the game or to the prompt depended on
+  // something invisible. The keyboard now always belongs to the prompt.
+  await $.ui.open({ id: PANE, title: 'Sidequest', rows: ROWS })
+  isOpen = true
+  return { text: `Sidequest is open. ${USAGE}` }
+}
+
 export const register: Register = (on, options) => {
   const configured = String(options.mode ?? '2048')
   const configuredLength = String(options.word_length ?? String(DEFAULT_LENGTH))
@@ -237,7 +342,6 @@ export const register: Register = (on, options) => {
   const after = Number(options.after_seconds ?? 20)
 
   let startedAt = 0
-  let isOpen = false
   // an unasked pane is seated only from 144 columns, and 110 once the person
   // has asked for it once; below that it waits undrawn, which looks from the
   // outside exactly like a plugin that does nothing. Say so, once.
@@ -249,6 +353,10 @@ export const register: Register = (on, options) => {
       name: COMMAND,
       description: 'Open 2048, or a word game built from this project, beside the chat',
     })
+    await $.command.register({
+      name: ALIAS,
+      description: 'Sidequest, short: /sq w a s d slides, /sq <word> guesses, /sq next swaps game',
+    }).catch(() => undefined)
     const kept = Number(await $.store.get('best').catch(() => 0)) || 0
     await update($, board, () => newBoard(roll, kept))
     await update($, showing, () => (configured === 'codele' ? 'codele' : 'board'))
@@ -271,86 +379,12 @@ export const register: Register = (on, options) => {
    * its fullscreen layout. A slash command is answered every time, whatever
    * holds the keyboard and whatever the keyboard is laid out like.
    */
-  on('command.run', { command: COMMAND }, async ($, e) => {
-    const said = e.args.trim().toLowerCase()
 
-    if (said !== '') {
-      await $.ui.open({ id: PANE, title: 'Sidequest', rows: ROWS })
-      isOpen = true
+  on('command.run', { command: COMMAND }, async ($, e) => respond($, e)).catch(($, e, next) => ({
+    text: `sidequest could not open: ${next.error.message ?? 'unknown error'}`,
+  }))
 
-      if (said === 'close' || said === 'quit') {
-        isOpen = false
-        await $.ui.close({ id: PANE })
-        return { text: 'Sidequest closed. /sidequest opens it again, where you left off.' }
-      }
-      if (said === '2048' || said === 'board') {
-        await update($, showing, () => 'board')
-        return { text: 'Playing 2048. /sidequest w, a, s or d slides; /sidequest word goes back to the word game.' }
-      }
-      if (said === 'word' || said === 'codele') {
-        await update($, showing, () => 'codele')
-        if (!(await read($, codele))) await newWord($, await read($, wanted))
-        return { text: 'Playing the word game. /sidequest <word> guesses; /sidequest 2048 goes back.' }
-      }
-      if (said === 'new') {
-        if ((await read($, showing)) === 'board') {
-          await reset($)
-          return { text: 'A new board.' }
-        }
-        await newWord($, await read($, wanted))
-        return { text: 'A new word.' }
-      }
-      if (/^(4|5|6|7|mixed)$/.test(said)) {
-        await update($, wanted, () => said)
-        await $.store.set('wanted', said).catch(() => undefined)
-        await update($, showing, () => 'codele')
-        await newWord($, said)
-        return { text: `The word game now asks for ${said === 'mixed' ? 'a varying number of' : said} letters.` }
-      }
-
-      const slide = SAID[said]
-      if (slide) {
-        await update($, showing, () => 'board')
-        await slideBoard($, slide)
-        const now = await read($, board)
-        return { text: `Slid ${slide}. Score ${now.score}${now.isOver ? ' — no moves left, /sidequest new deals another board.' : '.'}` }
-      }
-
-      if (/^[a-z]+$/.test(said)) {
-        await update($, showing, () => 'codele')
-        const game = (await read($, codele)) ?? (await newWord($, await read($, wanted)), await read($, codele))
-        if (!game) return { text: 'No word to guess yet. /sidequest word deals one.' }
-        if (said.length !== game.word.length) {
-          return { text: `That word is ${said.length} letters; this one wants ${game.word.length}. /sidequest ${game.word.length} changes the length.` }
-        }
-        await sayWord($, said, await read($, wanted))
-        const after = await read($, codele)
-        if (!after) return { text: 'The guess did not land.' }
-        if (after.isDone) {
-          return {
-            text: after.isWon
-              ? `${after.word.toUpperCase()} — solved in ${after.guesses.length}. It is ${after.from} jargon. /sidequest new deals another.`
-              : `Out of guesses. It was ${after.word.toUpperCase()}, ${after.from} jargon. /sidequest new deals another.`,
-          }
-        }
-        return { text: `${grade(said, after.word).map((m, i) => `${said[i]?.toUpperCase()}${MARK[m]}`).join(' ')} — guess ${after.guesses.length + 1} of ${TRIES}.` }
-      }
-
-      return { text: `Sidequest does not know "${said}". ${USAGE}` }
-    }
-
-    // `focus` is a request the surface grants only over an empty composer,
-    // and typing /sidequest is text in the composer, so a pane opened this way
-    // does not take the keyboard. Ask anyway — another way in may be able to —
-    // and say how to take it rather than claiming it was taken.
-    await $.ui.open({ id: PANE, title: 'Sidequest', focus: true, rows: ROWS })
-    isOpen = true
-    return {
-      // the keys are drawn in the pane; repeating them here only buries the
-      // one thing that is not, which is how to reach it at all
-      text: 'Sidequest is open. Press ctrl+x then tab — quickly, one after the other — to play. Esc comes back.',
-    }
-  }).catch(($, e, next) => ({
+  on('command.run', { command: ALIAS }, async ($, e) => respond($, e)).catch(($, e, next) => ({
     text: `sidequest could not open: ${next.error.message ?? 'unknown error'}`,
   }))
 
@@ -512,28 +546,29 @@ export const register: Register = (on, options) => {
             placeholder={word.isDone ? 'enter for another word' : `${word.length} letters, then enter`}
             onSubmit={(value: string) => void sayWord($, value, letters)}
           />
+          {/*
+            Not one of these carries a hotkey, and that is the point. A hotkey
+            here is a key taken out of the terminal's mouth: on an AZERTY
+            board a digit needs shift, so `2` — which used to mean close —
+            fired from shift+2 and from the numeric keypad, and the game shut
+            itself while its owner was trying to switch to the other one. The
+            buttons stay because a click still works in a fullscreen terminal;
+            the keyboard is never touched.
+          */}
           <Box>
-            {/*
-              Every letter is typed into the field above, so no letter can be a
-              control here as well: pressing `t` to spell a word must not swap
-              the game out from under it. Digits are never typed, so they are.
-            */}
-            <Button key="swap" hotkey="1" plain dimColor label="2048" onPress={onSwitch} />
+            <Button key="swap" plain dimColor label="2048" onPress={onSwitch} />
             <Text> </Text>
-            <Button key="close" hotkey="2" plain dimColor label="close" onPress={onClose} />
+            <Button key="close" plain dimColor label="close" onPress={onClose} />
             <Text> </Text>
             <Button
               key="length"
-              hotkey="3"
               plain
               dimColor
               label={letters === 'mixed' ? 'mixed length' : `${letters} letters`}
               onPress={onCycleLength}
             />
           </Box>
-          <Text dimColor>
-            {e.props.isFocused ? 'Esc gives the prompt back' : 'ctrl+x then tab, quickly, to play'}
-          </Text>
+          <Text dimColor>/sq {'<word>'} guesses · /sq 2048 · /sq new · /sq close</Text>
         </Box>
       )
     }
@@ -555,38 +590,32 @@ export const register: Register = (on, options) => {
               <Text>{row}</Text>
             </Box>
           ))}
-          {b.isOver && <Text color="text-danger">No moves left. Press r for a new board.</Text>}
+          {b.isOver && <Text color="text-danger">No moves left. /sq new deals another board.</Text>}
           <Box>
-            <Button key="up" hotkey="w" plain label="up" onPress={onSlide('up')} />
+            <Button key="up" plain label="up" onPress={onSlide('up')} />
             <Text> </Text>
-            <Button key="left" hotkey="a" plain label="left" onPress={onSlide('left')} />
+            <Button key="left" plain label="left" onPress={onSlide('left')} />
             <Text> </Text>
-            <Button key="down" hotkey="s" plain label="down" onPress={onSlide('down')} />
+            <Button key="down" plain label="down" onPress={onSlide('down')} />
             <Text> </Text>
-            <Button key="right" hotkey="d" plain label="right" onPress={onSlide('right')} />
+            <Button key="right" plain label="right" onPress={onSlide('right')} />
+            <Text> </Text>
+            <Button key="new" plain dimColor label="new" onPress={() => void reset($)} />
+            <Text> </Text>
+            <Button key="swap" plain dimColor label="word game" onPress={onSwitch} />
+            <Text> </Text>
+            <Button key="close" plain dimColor label="close" onPress={onClose} />
           </Box>
           {/*
-            W-A-S-D is a shape on a QWERTY board, not a set of letters: the
-            same four keys under the same fingers are Z-Q-S-D on AZERTY, where
-            A and Q, W and Z are swapped. Both are bound either way; this row
-            only says so, and is the first thing to go when the room is short.
+            W-A-S-D is a shape on a QWERTY board, not a set of letters: under
+            the same four fingers an AZERTY board reads Z-Q-S-D. The command
+            takes both spellings, so this row only says so, and is the first
+            thing to go when the room is short.
           */}
           <Box key="azerty" display={hasSpareRow ? 'flex' : 'none'}>
-            <Text dimColor>azerty </Text>
-            <Button key="up-az" hotkey="z" plain dimColor label="up" onPress={onSlide('up')} />
-            <Text> </Text>
-            <Button key="left-az" hotkey="q" plain dimColor label="left" onPress={onSlide('left')} />
+            <Text dimColor>/sq w a s d slides — or z q s d. A run works too: /sq ddss</Text>
           </Box>
-          <Box>
-            <Button key="new" hotkey="r" plain dimColor label="new board" onPress={() => void reset($)} />
-            <Text> </Text>
-            <Button key="swap" hotkey="1" plain dimColor label="word game" onPress={onSwitch} />
-            <Text> </Text>
-            <Button key="close" hotkey="2" plain dimColor label="close" onPress={onClose} />
-          </Box>
-          <Text dimColor>
-            {e.props.isFocused ? 'Esc gives the prompt back' : 'ctrl+x then tab, quickly, to play'}
-          </Text>
+          <Text dimColor>/sq word · /sq new · /sq close</Text>
         </Box>
       )
     }

@@ -129,39 +129,54 @@ Your best score is kept across sessions.
 ## Usage
 
 ```
-/sidequest            open the pane
-/sidequest w a s d    slide 2048 (z and q as well, for an AZERTY board)
-/sidequest parse      guess, in the word game
-/sidequest word       switch to the word game       /sidequest 2048  switch back
-/sidequest new        another board, or another word
-/sidequest 4 5 6 7    how many letters the word game asks for   /sidequest mixed
-/sidequest close      close the pane
+/sq            open the pane
+/sq w a s d    slide 2048 (z q s d as well, for an AZERTY board)
+/sq ddss       a run of slides, in one go
+/sq parse      guess, in the word game
+/sq word       the word game    /sq 2048  2048    /sq next  the other one
+/sq new        another board, or another word
+/sq 4 5 6 7    how many letters the word game asks for    /sq mixed
+/sq close      close the pane
 ```
 
-**Both games are played from the prompt**, where the keyboard already is. The
-reply carries the result, so nothing has to be read out of the pane to know
-what happened:
+`/sidequest` is the same command spelled out, for when you want to find it in
+the menu.
+
+**Both games are played from the prompt**, where the keyboard already is, and
+**nothing else is bound to anything.** No key you press while the pane is open
+can switch a game, close it, or go anywhere but the prompt. The reply carries
+the result, so nothing has to be read out of the pane to know what happened:
 
 ```
-> /sidequest d
-  Slid right. Score 4.
+> /sq ddss
+  Slid right, right, down, down. Score 8.
 
-> /sidequest parse
+> /sq parse
   P· A· R· S· E~ — guess 2 of 6.
 ```
+
+`2048` and `word` name a game outright rather than toggling, so asking twice
+for the one already showing does nothing and neither game can strand you.
 
 ### Why not just play the pane
 
 Because reaching into it means taking the keyboard off the composer, and that
 is the one thing that cannot be relied on. The focus request is refused over a
-composer holding text — and typing `/sidequest` is text in the composer. The
-`ctrl+x` `tab` chord lapses unless the two presses are quick. A terminal
-reports no click outside its fullscreen layout. On an AZERTY board a digit
-needs shift. Each of those is somebody's everyday setup.
+composer holding text — and typing `/sq` is text in the composer. The `ctrl+x`
+`tab` chord lapses unless the two presses are quick. A terminal reports no
+click outside its fullscreen layout.
 
-The pane still plays directly where the keyboard does reach it — `ctrl+x` then
-`tab`, quickly, then `w a s d`, letters and `enter`. That is the faster way
-round when it works, and no longer the only one.
+So the pane asks for the keyboard **never**, and binds **no key at all**. That
+second half matters more than it sounds. A hotkey in a pane is a key taken out
+of the terminal's mouth, and the pane has no way to know what you meant by it.
+On an AZERTY board every digit needs shift, so `shift+2` — and the numeric
+keypad — both arrive as plain `2`, which used to mean *close*: the game shut
+itself while its owner was reaching for the other one. Meanwhile the word
+game's text field ate the digit that would have switched back. Nothing is
+bound now, so none of that can happen on any layout.
+
+The buttons in the pane stay, and a click still works where the terminal
+reports one. They are a shortcut, never the only way in.
 
 In `/config`: **Open after** (seconds before the pane opens unasked; `0` never
 does), **Game** and **Word length** — what a machine that has never chosen one
@@ -197,34 +212,16 @@ it, then `/reload-plugins` in a running session.
 
 ## First run
 
-Type `/sidequest`. The pane opens beside the transcript; press **ctrl+x** and
-then **tab** to put the keyboard in it, and **Esc** to give it back. The
-pane's last line always says which of the two to press.
+Type `/sq`. The pane opens beside the transcript and the keyboard stays
+exactly where it was — in the prompt. Play from there: `/sq d`, `/sq parse`,
+`/sq next`. The pane's last line always says what to type.
 
-A click focuses a pane too, but only where the terminal reports clicks, which
-is its fullscreen layout. Above the prompt, in the ordinary screen, the mouse
-belongs to the terminal — selecting text with it is the terminal's own job —
-so the keyboard is the way in.
+There is no focus to manage and nothing to press to get back, because nothing
+was ever taken. Esc does whatever your terminal and your editor already make
+it do; sidequest does not want it.
 
-`ctrl+x tab` is a chord of two presses rather than one combination: ctrl+x,
-released, then tab, **one straight after the other** — the chord lapses if you
-pause between them, which looks exactly like a key that does nothing. Some
-terminals, a JetBrains one among them, may take ctrl+x for themselves.
-
-No letter is a control in either game. Every letter in the word game is typed
-into the field, so a letter that also switched the game would swap it out from
-under a word being spelled — and a key that switches one way should switch
-back, which means the same key in both. `1` and `2` are those keys.
-
-It does not take the keyboard by itself, and cannot: a pane is granted focus
-only over an empty composer, and typing `/sidequest` is text in the composer.
-That rule is what stops a pane opening mid-sentence and swallowing it, which
-is worth more than saving a keypress here.
-
-After that it opens by itself, twenty seconds into any turn that runs that
-long, and without taking the keyboard — what you are typing still reaches the
-prompt. Press **ctrl+x tab** to put the keyboard in the pane, and **Esc** to
-take it back.
+After that the pane opens by itself, twenty seconds into any turn that runs
+that long, and the same holds: what you are typing still reaches the prompt.
 
 One thing worth knowing: a pane the engine opens **unasked** is seated only
 from **144 columns**, and from 110 once you have opened it yourself at least

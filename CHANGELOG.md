@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.3.0 — 2026-11-18
+
+**The pane binds no key at all, and never asks for the keyboard.**
+
+0.2.0 moved play to the prompt but left the pane's hotkeys in place, and those
+were the bug. A hotkey in a pane is a key taken out of the terminal's mouth,
+and the pane cannot know what was meant by it:
+
+- `2` meant **close** in *both* games. On an AZERTY board a digit needs shift,
+  so `shift+2` — reaching for the other game — arrived as `2` and shut the
+  pane. So did the numeric keypad.
+- `1` meant **switch**, but in the word game the text field took the digit
+  first, so there was no way back to 2048 once you had left it.
+- Esc belonged to the terminal and the editor, never to a pane that had not
+  been granted focus, so it did whatever that editor does — in a JetBrains
+  terminal, jump to an open file.
+
+Every `hotkey` is gone, and `$.ui.open` no longer requests `focus`. The
+buttons stay and still answer a click where the terminal reports one.
+
+Added, so that playing from the prompt is actually pleasant:
+
+- **`/sq`**, the same command under a name short enough to play with. `/sq d`
+  is five keystrokes where `/sidequest d` was twelve.
+- **Runs of moves** — `/sq ddss` slides four times in one go.
+- **`/sq 2048` and `/sq word` name a game** rather than toggling, so asking
+  twice for the one already showing is harmless and neither can strand you.
+  `/sq next` is the toggle, for when either will do.
+
+Driven through a real session on a pty: `/sq ddss` scored, `/sq word`,
+`/sq parse` graded, `/sq 2048` came back to the same board — and mashing
+`1 2 3 r t` and Esc with the pane open moved nothing but the cursor in the
+prompt.
+
 ## 0.2.0 — 2026-11-18
 
 Both games are played **from the prompt**, where the keyboard already is.
