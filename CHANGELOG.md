@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.7 — 2026-11-18
+
+- Every letter of a guess carries its own mark — `T=` in place, `E~` elsewhere,
+  `S·` not in the word — so a guess is one row and reads with no colour at all.
+  A terminal is free to draw two theme hues so alike that green and amber
+  cannot be told apart, and then colour alone says nothing.
+- No letter is a control in either game. `1` switches game and `2` closes,
+  the same keys in both, so the key that switched never fails to switch back.
+- `3` cycles the word length from the pane — 4, 5, 6, 7, mixed — and the choice
+  outlives the session. The setting is what a machine that has never chosen
+  one plays at.
+
 ## 0.1.6 — 2026-11-18
 
 - `/sidequest` says one thing: how to reach the pane. The keys are drawn in

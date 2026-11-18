@@ -130,7 +130,7 @@ test('the word pane draws coloured tiles and takes a guess', { options: { mode: 
   await ui.unmount()
 })
 
-test('no control of the word game answers to a letter, since letters are typed', { options: { mode: 'codele' } }, async ($, on) => {
+test('no control of either game answers to a letter', { options: { mode: 'codele' } }, async ($, on) => {
   on('command.register', () => ({ value: { command: 'sidequest' } }))
   on('store.get', () => ({ value: 0 }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
@@ -143,7 +143,7 @@ test('no control of the word game answers to a letter, since letters are typed',
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
 
-  for (const key of ['swap', 'close']) {
+  for (const key of ['swap', 'close', 'length']) {
     const hotkey = (await ui.find({ type: 'Button', key }))?.props?.hotkey
     expect(hotkey).toBeDefined()
     // a letter here would be swallowed by, or would swallow, a guess
@@ -302,4 +302,55 @@ test('a short pane sheds its notes before it sheds the board', async ($, on) => 
     expect(await tight.find({ type: 'Button', key })).toBeDefined()
   }
   await tight.unmount()
+})
+
+
+test('switching and closing answer to the same keys in both games', async ($, on) => {
+  on('command.register', () => ({ value: { command: 'sidequest' } }))
+  on('store.get', () => ({ value: undefined }))
+  on('store.set', () => ({ value: undefined }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('process.run', () => ({
+    value: { exitCode: 0, stdout: 'a.ts\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
+  }))
+  on('fs.read', () => ({ value: 'parse table fence glyph probe parse table fence glyph probe' }))
+
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+
+  // 2048 first: one key switches, and the same key switches back
+  expect((await ui.find({ type: 'Button', key: 'swap' }))?.props?.hotkey).toBe('1')
+  await ui.press({ key: 'swap' })
+  expect(await ui.find({ type: 'Input', key: 'guess' })).toBeDefined()
+  expect((await ui.find({ type: 'Button', key: 'swap' }))?.props?.hotkey).toBe('1')
+  await ui.press({ key: 'swap' })
+  expect(await ui.find({ type: 'Text', text: /┌─/ })).toBeDefined()
+
+  await ui.unmount()
+})
+
+test('the word length is cycled from the pane and kept', async ($, on) => {
+  on('command.register', () => ({ value: { command: 'sidequest' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('process.run', () => ({
+    value: { exitCode: 0, stdout: 'a.ts\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
+  }))
+  on('fs.read', () => ({ value: 'tidy parse glyphs invoice tidy parse glyphs invoice' }))
+  const kept: Record<string, unknown> = {}
+  on('store.get', (_, e) => ({ value: kept[String(e.key)] }))
+  on('store.set', (_, e) => { kept[String(e.key)] = e.value; return { value: undefined } })
+
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'swap' })
+
+  expect((await ui.find({ type: 'Button', key: 'length' }))?.props?.label).toContain('5')
+  await ui.press({ key: 'length' })
+  expect((await ui.find({ type: 'Button', key: 'length' }))?.props?.label).toContain('6')
+  // and the choice outlives the session
+  expect(kept.wanted).toBe('6')
+
+  await ui.unmount()
 })

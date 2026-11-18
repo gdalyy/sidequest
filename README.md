@@ -136,10 +136,11 @@ Your best score is kept across sessions.
 |-----|---|
 | `w` `a` `s` `d` | slide (2048) |
 | `z` `q` | up and left on an AZERTY board |
-| type + `enter` | guess (codele) |
-| `t` (2048) · `1` (word game) | switch game |
-| `r` | new board |
-| `x` (2048) · `2` (word game) | close the pane |
+| type + `enter` | guess (word game) |
+| `3` | word length: 4, 5, 6, 7, mixed |
+| `1` | switch game |
+| `2` | close the pane |
+| `r` | new board (2048) |
 | `Esc` | give the keyboard back to the prompt |
 | click, or `ctrl+x` then `tab` | take the keyboard back into the pane |
 
@@ -151,8 +152,10 @@ word is layout-free either way, since a letter is a letter wherever it sits.
 The pane opens by itself once a turn has run for 20 seconds, without taking
 the keyboard. Press **ctrl+x tab** (or click it) to play.
 
-In `/config`: **Open after** (seconds before it opens unasked; `0` never
-does), **Game** (which of the two the pane opens on) and **Word length**.
+`3` cycles the word length in the pane, and the choice is kept across
+sessions. In `/config`: **Open after** (seconds before it opens unasked; `0`
+never does), **Game** (which of the two the pane opens on) and **Word length**
+(what a machine that has never chosen one plays at).
 
 ## Install
 
@@ -198,9 +201,10 @@ released, then tab, **one straight after the other** — the chord lapses if you
 pause between them, which looks exactly like a key that does nothing. Some
 terminals, a JetBrains one among them, may take ctrl+x for themselves.
 
-In the word game every letter is typed into the field, so no letter can be a
-control as well: `1` switches to 2048 and `2` closes. In 2048 nothing is
-typed, so its controls keep their letters.
+No letter is a control in either game. Every letter in the word game is typed
+into the field, so a letter that also switched the game would swap it out from
+under a word being spelled — and a key that switches one way should switch
+back, which means the same key in both. `1` and `2` are those keys.
 
 It does not take the keyboard by itself, and cannot: a pane is granted focus
 only over an empty composer, and typing `/sidequest` is text in the composer.

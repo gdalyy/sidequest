@@ -32,6 +32,7 @@ const steps = atom({ plugin: 'sidequest', key: 'steps' } as const, 0)
 const board = atom({ plugin: 'sidequest', key: 'board' } as const, EMPTY_BOARD, { shape: 'board-1' })
 const codele = atom({ plugin: 'sidequest', key: 'codele' } as const, null, { shape: 'codele-1' })
 const showing = atom({ plugin: 'sidequest', key: 'showing' } as const, 'board')
+const wanted = atom({ plugin: 'sidequest', key: 'wanted' } as const, String(DEFAULT_LENGTH))
 
 // ---------------------------------------------------------------- the repository
 
@@ -197,7 +198,13 @@ const TILE: Record<Grade, { color: string; bold?: true; dimColor?: true }> = {
   absent: { color: 'text-muted', dimColor: true },
 }
 
-/** `=` in place, `~` elsewhere in the word, `·` not in it. */
+/**
+ * The mark each letter carries: `=` in place, `~` elsewhere in the word, `·`
+ * not in it. It rides on the letter rather than on a row of its own, so a
+ * guess is one row and reads without colour — a terminal is free to draw two
+ * theme hues so alike that green and amber cannot be told apart, and then the
+ * colour alone says nothing.
+ */
 const MARK: Record<Grade, string> = { right: '=', near: '~', absent: '·' }
 
 /** One move, and the best score written through to the store when it grows. */
@@ -212,7 +219,7 @@ async function slideBoard($: EngineInterface, dir: Direction): Promise<void> {
 
 export const register: Register = (on, options) => {
   const configured = String(options.mode ?? '2048')
-  const letters = String(options.word_length ?? String(DEFAULT_LENGTH))
+  const configuredLength = String(options.word_length ?? String(DEFAULT_LENGTH))
   const isGame = configured === '2048' || configured === 'codele'
   const after = Number(options.after_seconds ?? 20)
 
@@ -232,7 +239,12 @@ export const register: Register = (on, options) => {
     const kept = Number(await $.store.get('best').catch(() => 0)) || 0
     await update($, board, () => newBoard(roll, kept))
     await update($, showing, () => (configured === 'codele' ? 'codele' : 'board'))
-    if (configured === 'codele') await newWord($, letters)
+    // the length last chosen from the pane outlives the session; the setting
+    // is what a machine that has never chosen one plays at
+    const chosen = String((await $.store.get('wanted').catch(() => undefined)) ?? configuredLength)
+    const length = [...LENGTHS.map(String), 'mixed'].includes(chosen) ? chosen : configuredLength
+    await update($, wanted, () => length)
+    if (configured === 'codele') await newWord($, length)
     return next(e)
   })
 
@@ -297,12 +309,22 @@ export const register: Register = (on, options) => {
     // game to see whether the turn they are waiting on is still running
     const header = working ? `Claude is working · ${n} step${n === 1 ? '' : 's'}` : 'Claude is done'
 
+    const onCycleLength = () => {
+      void (async () => {
+        const order = [...LENGTHS.map(String), 'mixed']
+        const at = order.indexOf(await read($, wanted))
+        const next = order[(at + 1) % order.length] ?? String(DEFAULT_LENGTH)
+        await update($, wanted, () => next)
+        await $.store.set('wanted', next).catch(() => undefined)
+        await newWord($, next)
+      })()
+    }
     const onSwitch = () => {
       void (async () => {
         const now = await read($, showing)
         const next = now === 'board' ? 'codele' : 'board'
         await update($, showing, () => next)
-        if (next === 'codele' && !(await read($, codele))) await newWord($, letters)
+        if (next === 'codele' && !(await read($, codele))) await newWord($, await read($, wanted))
       })()
     }
     const onClose = () => {
@@ -311,6 +333,7 @@ export const register: Register = (on, options) => {
     }
 
     if ((await read($, showing)) === 'codele') {
+      const letters = await read($, wanted)
       const word = await read($, codele)
       if (!word) {
         return (
@@ -324,54 +347,30 @@ export const register: Register = (on, options) => {
       const rows: Grade[][] = word.guesses.map(g => grade(g, word.word))
       // header, the six guess rows, the in/out line, the field, the controls
       // and the line saying how to reach the pane
-      const showMarks = room >= 6 + TRIES * 2
 
       return (
         <Box flexDirection="column">
           <Text dimColor>
-            {`${header} · guess ${Math.min(word.guesses.length + 1, TRIES)} of ${TRIES} · = in place, ~ elsewhere`}
+            {`${header} · guess ${Math.min(word.guesses.length + 1, TRIES)} of ${TRIES} · A= in place, A~ elsewhere`}
           </Text>
           {word.guesses.map((g, row) => (
-            <Box key={`guess-${row}`} flexDirection="column">
-              <Box>
-                {Array.from({ length: word.length }, (_, i) => i).map(i => {
-                  const mark = (rows[row] ?? [])[i] ?? 'absent'
-                  return (
-                    <Text color={TILE[mark].color} bold={TILE[mark].bold} dimColor={TILE[mark].dimColor}>
-                      {` ${(g[i] ?? ' ').toUpperCase()} `}
-                    </Text>
-                  )
-                })}
-              </Box>
-              {/*
-                The marks say in writing what the colour says, which matters
-                where there is no colour — but they double the height of every
-                guess. Where the room is short they go, newest guess last, and
-                the colour carries it alone.
-              */}
-              <Box key={`marks-${row}`} display={showMarks ? 'flex' : 'none'}>
-                {Array.from({ length: word.length }, (_, i) => i).map(i => {
-                  const mark = (rows[row] ?? [])[i] ?? 'absent'
-                  return (
-                    <Text color={TILE[mark].color} dimColor={TILE[mark].dimColor}>
-                      {` ${MARK[mark]} `}
-                    </Text>
-                  )
-                })}
-              </Box>
+            <Box key={`guess-${row}`}>
+              {Array.from({ length: word.length }, (_, i) => i).map(i => {
+                const mark = (rows[row] ?? [])[i] ?? 'absent'
+                return (
+                  <Text color={TILE[mark].color} bold={TILE[mark].bold} dimColor={TILE[mark].dimColor}>
+                    {`${(g[i] ?? ' ').toUpperCase()}${MARK[mark]} `}
+                  </Text>
+                )
+              })}
             </Box>
           ))}
           {Array.from(
-            {
-              length: Math.max(
-                0,
-                Math.min(TRIES - word.guesses.length, room - 6 - word.guesses.length * (showMarks ? 2 : 1)),
-              ),
-            },
+            { length: Math.max(0, Math.min(TRIES - word.guesses.length, room - 6 - word.guesses.length)) },
             (_, i) => i,
           ).map(i => (
             <Box key={`empty-${i}`}>
-              <Text dimColor>{' _ '.repeat(word.length)}</Text>
+              <Text dimColor>{'_  '.repeat(word.length)}</Text>
             </Box>
           ))}
           {word.isDone ? (
@@ -432,6 +431,15 @@ export const register: Register = (on, options) => {
             <Button key="swap" hotkey="1" plain dimColor label="2048" onPress={onSwitch} />
             <Text> </Text>
             <Button key="close" hotkey="2" plain dimColor label="close" onPress={onClose} />
+            <Text> </Text>
+            <Button
+              key="length"
+              hotkey="3"
+              plain
+              dimColor
+              label={letters === 'mixed' ? 'mixed length' : `${letters} letters`}
+              onPress={onCycleLength}
+            />
           </Box>
           <Text dimColor>
             {e.props.isFocused ? 'Esc gives the prompt back' : 'ctrl+x then tab, quickly, to play'}
@@ -482,9 +490,9 @@ export const register: Register = (on, options) => {
           <Box>
             <Button key="new" hotkey="r" plain dimColor label="new board" onPress={() => void reset($)} />
             <Text> </Text>
-            <Button key="swap" hotkey="t" plain dimColor label="codele" onPress={onSwitch} />
+            <Button key="swap" hotkey="1" plain dimColor label="word game" onPress={onSwitch} />
             <Text> </Text>
-            <Button key="close" hotkey="x" plain dimColor label="close" onPress={onClose} />
+            <Button key="close" hotkey="2" plain dimColor label="close" onPress={onClose} />
           </Box>
           <Text dimColor>
             {e.props.isFocused ? 'Esc gives the prompt back' : 'ctrl+x then tab, quickly, to play'}

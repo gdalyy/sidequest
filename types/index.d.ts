@@ -44,6 +44,8 @@ declare module 'claude-code' {
       codele: Shaped<Codele | null>
       /** Which game the pane is showing; the person switches with one key. */
       showing: 'board' | 'codele'
+      /** The word length asked for: '4'…'7' or 'mixed', cycled from the pane. */
+      wanted: string
     }
   }
 }
