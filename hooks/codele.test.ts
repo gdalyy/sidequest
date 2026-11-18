@@ -298,3 +298,16 @@ test('the pool is built per length, and a curated word only joins its own', () =
     }
   }
 })
+test('the alphabet tells apart a letter ruled out from one never tried', () => {
+  // TOUCH, guessed TESTS: the t is in place, e and s are ruled out, and every
+  // other letter is still worth trying
+  let game = newGame({ word: 'touch', from: 'this project' })
+  game = guess(game, 'tests')
+  const marks = letterMarks(game)
+
+  expect(marks.t).toBe('right')
+  expect(marks.e).toBe('absent')
+  expect(marks.s).toBe('absent')
+  // never guessed, so it carries no mark at all and must not be drawn as ruled out
+  for (const letter of ['b', 'r', 'o', 'u', 'c', 'h']) expect(marks[letter]).toBe(undefined)
+})

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.5 — 2026-11-18
+
+- A graded guess colours the letters themselves rather than painting a block
+  behind them. The terminal was not painting the background, so every letter of
+  a guess looked alike and the guess said nothing.
+- Under each guess is a row of marks — `=` in place, `~` elsewhere, `·` not in
+  the word — which carries the same answer without colour, for a terminal with
+  none and for anyone who cannot tell green from amber.
+- A letter ruled out is struck through rather than only dimmed, and the letters
+  still worth trying are listed in words beneath. A terminal may draw `dim` in
+  any shade it likes, and where that shade is warmer than the plain text the
+  eliminated letters were the ones catching the eye.
+
 ## 0.1.4 — 2026-11-18
 
 - The word game's controls move to `1` and `2`. They were `t` and `x`, which

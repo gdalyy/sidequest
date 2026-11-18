@@ -182,12 +182,23 @@ async function sayWord($: EngineInterface, text: string, wanted: string): Promis
   await update($, codele, g => (g ? guess(g, text) : g))
 }
 
-/** The colours a graded letter is drawn in. */
-const TILE: Record<Grade, { backgroundColor: string; color: string }> = {
-  right: { backgroundColor: 'bg-success', color: 'on-success' },
-  near: { backgroundColor: 'bg-warning', color: 'on-warning' },
-  absent: { backgroundColor: 'surface-2', color: 'text-muted' },
+/**
+ * How a graded letter is drawn. The colour is the letter's own, not a block
+ * painted behind it: a terminal draws a foreground colour everywhere, while a
+ * `backgroundColor` it does not paint leaves every letter looking alike, which
+ * is a graded guess that says nothing.
+ *
+ * The mark under each letter carries the same grade without colour at all, for
+ * a terminal with none and for anyone who cannot tell these two hues apart.
+ */
+const TILE: Record<Grade, { color: string; bold?: true; dimColor?: true }> = {
+  right: { color: 'text-success', bold: true },
+  near: { color: 'text-warning', bold: true },
+  absent: { color: 'text-muted', dimColor: true },
 }
+
+/** `=` in place, `~` elsewhere in the word, `·` not in it. */
+const MARK: Record<Grade, string> = { right: '=', near: '~', absent: '·' }
 
 /** One move, and the best score written through to the store when it grows. */
 async function slideBoard($: EngineInterface, dir: Direction): Promise<void> {
@@ -316,23 +327,38 @@ export const register: Register = (on, options) => {
       return (
         <Box flexDirection="column">
           <Text dimColor>
-            {`${header} · guess ${Math.min(word.guesses.length + 1, TRIES)} of ${TRIES}`}
+            {`${header} · guess ${Math.min(word.guesses.length + 1, TRIES)} of ${TRIES} · = in place, ~ elsewhere`}
           </Text>
           {word.guesses.map((g, row) => (
-            <Box>
-              {Array.from({ length: word.length }, (_, i) => i).map(i => {
-                const mark = (rows[row] ?? [])[i] ?? 'absent'
-                return (
-                  <Text backgroundColor={TILE[mark].backgroundColor} color={TILE[mark].color} bold>
-                    {` ${(g[i] ?? ' ').toUpperCase()} `}
-                  </Text>
-                )
-              })}
+            <Box key={`guess-${row}`} flexDirection="column">
+              <Box>
+                {Array.from({ length: word.length }, (_, i) => i).map(i => {
+                  const mark = (rows[row] ?? [])[i] ?? 'absent'
+                  return (
+                    <Text color={TILE[mark].color} bold={TILE[mark].bold} dimColor={TILE[mark].dimColor}>
+                      {` ${(g[i] ?? ' ').toUpperCase()} `}
+                    </Text>
+                  )
+                })}
+              </Box>
+              <Box>
+                {Array.from({ length: word.length }, (_, i) => i).map(i => {
+                  const mark = (rows[row] ?? [])[i] ?? 'absent'
+                  return (
+                    <Text color={TILE[mark].color} dimColor={TILE[mark].dimColor}>
+                      {` ${MARK[mark]} `}
+                    </Text>
+                  )
+                })}
+              </Box>
             </Box>
           ))}
-          {Array.from({ length: Math.max(0, TRIES - word.guesses.length) }, (_, i) => i).map(i => (
+          {Array.from(
+            { length: Math.max(0, Math.min(TRIES - word.guesses.length, room - 6 - word.guesses.length * 2)) },
+            (_, i) => i,
+          ).map(i => (
             <Box key={`empty-${i}`}>
-              <Text dimColor>{' · '.repeat(word.length)}</Text>
+              <Text dimColor>{' _ '.repeat(word.length)}</Text>
             </Box>
           ))}
           {word.isDone ? (
@@ -343,15 +369,40 @@ export const register: Register = (on, options) => {
             </Text>
           ) : (
             <Box>
+              {/*
+                A letter ruled out is struck through, not merely dimmed: a
+                terminal is free to draw `dim` as any shade it likes, and where
+                that shade is warmer than the plain text the eliminated letters
+                are the ones that catch the eye, which is backwards.
+              */}
               {'abcdefghijklmnopqrstuvwxyz'.split('').map(letter => (
                 <Text
+                  bold={marks[letter] === 'right' || marks[letter] === 'near'}
                   dimColor={marks[letter] === 'absent'}
-                  color={marks[letter] === 'right' ? 'text-success' : marks[letter] === 'near' ? 'text-warning' : undefined}
+                  strikethrough={marks[letter] === 'absent'}
+                  color={
+                    marks[letter] === 'right'
+                      ? 'text-success'
+                      : marks[letter] === 'near'
+                        ? 'text-warning'
+                        : marks[letter] === 'absent'
+                          ? 'text-muted'
+                          : undefined
+                  }
                 >
                   {letter}
                 </Text>
               ))}
             </Box>
+          )}
+          {word.guesses.length > 0 && (
+            <Text dimColor>
+              {(() => {
+                const known = Object.keys(marks).filter(l => marks[l] !== 'absent').sort()
+                const out = Object.keys(marks).filter(l => marks[l] === 'absent').sort()
+                return `in: ${known.join(' ') || '—'}   out: ${out.join(' ') || '—'}`
+              })()}
+            </Text>
           )}
           <Input
             key="guess"
