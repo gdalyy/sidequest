@@ -129,33 +129,43 @@ Your best score is kept across sessions.
 ## Usage
 
 ```
-/sidequest     open the pane
+/sidequest            open the pane
+/sidequest w a s d    slide 2048 (z and q as well, for an AZERTY board)
+/sidequest parse      guess, in the word game
+/sidequest word       switch to the word game       /sidequest 2048  switch back
+/sidequest new        another board, or another word
+/sidequest 4 5 6 7    how many letters the word game asks for   /sidequest mixed
+/sidequest close      close the pane
 ```
 
-| Key | |
-|-----|---|
-| `w` `a` `s` `d` | slide (2048) |
-| `z` `q` | up and left on an AZERTY board |
-| type + `enter` | guess (word game) |
-| `3` | word length: 4, 5, 6, 7, mixed |
-| `1` | switch game |
-| `2` | close the pane |
-| `r` | new board (2048) |
-| `Esc` | give the keyboard back to the prompt |
-| click, or `ctrl+x` then `tab` | take the keyboard back into the pane |
+**Both games are played from the prompt**, where the keyboard already is. The
+reply carries the result, so nothing has to be read out of the pane to know
+what happened:
 
-W-A-S-D is a shape, not a set of letters: the same four keys under the same
-fingers are Z-Q-S-D on an AZERTY board, where A and Q, W and Z are swapped.
-Both are bound, so neither layout has to be told about the other. Typing a
-word is layout-free either way, since a letter is a letter wherever it sits.
+```
+> /sidequest d
+  Slid right. Score 4.
 
-The pane opens by itself once a turn has run for 20 seconds, without taking
-the keyboard. Press **ctrl+x tab** (or click it) to play.
+> /sidequest parse
+  P· A· R· S· E~ — guess 2 of 6.
+```
 
-`3` cycles the word length in the pane, and the choice is kept across
-sessions. In `/config`: **Open after** (seconds before it opens unasked; `0`
-never does), **Game** (which of the two the pane opens on) and **Word length**
-(what a machine that has never chosen one plays at).
+### Why not just play the pane
+
+Because reaching into it means taking the keyboard off the composer, and that
+is the one thing that cannot be relied on. The focus request is refused over a
+composer holding text — and typing `/sidequest` is text in the composer. The
+`ctrl+x` `tab` chord lapses unless the two presses are quick. A terminal
+reports no click outside its fullscreen layout. On an AZERTY board a digit
+needs shift. Each of those is somebody's everyday setup.
+
+The pane still plays directly where the keyboard does reach it — `ctrl+x` then
+`tab`, quickly, then `w a s d`, letters and `enter`. That is the faster way
+round when it works, and no longer the only one.
+
+In `/config`: **Open after** (seconds before the pane opens unasked; `0` never
+does), **Game** and **Word length** — what a machine that has never chosen one
+starts at.
 
 ## Install
 

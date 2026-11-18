@@ -354,3 +354,70 @@ test('the word length is cycled from the pane and kept', async ($, on) => {
 
   await ui.unmount()
 })
+
+/** Everything the command can be told, with a repository behind it. */
+const PLAYABLE = (on: Parameters<Parameters<typeof test>[2]>[1]) => {
+  on('command.register', () => ({ value: { command: 'sidequest' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.close', () => ({ value: undefined }))
+  on('session.start', (_: unknown, e: { cwd: string }) => ({ cwd: e.cwd }))
+  on('process.run', () => ({
+    value: { exitCode: 0, stdout: 'a.ts\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
+  }))
+  on('fs.read', () => ({ value: 'parse table fence glyph probe parse table fence glyph probe' }))
+  const kept: Record<string, unknown> = {}
+  on('store.get', (_: unknown, e: { key: string }) => ({ value: kept[String(e.key)] }))
+  on('store.set', (_: unknown, e: { key: string; value: unknown }) => {
+    kept[String(e.key)] = e.value
+    return { value: undefined }
+  })
+  return kept
+}
+
+const say = ($: any, args: string) => $.command.run({ ...RUN, args })
+
+test('2048 is played from the prompt, without the keyboard ever leaving it', async ($, on) => {
+  PLAYABLE(on)
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  await say($, '')
+
+  for (const [arg, named] of [['a', 'left'], ['s', 'down'], ['d', 'right'], ['w', 'up']] as const) {
+    const ran = await say($, arg)
+    expect(ran.text).toContain(`Slid ${named}`)
+    expect(ran.text).toContain('Score')
+  }
+  // the AZERTY letters mean the same thing here as they do in the pane
+  expect((await say($, 'z')).text).toContain('Slid up')
+  expect((await say($, 'q')).text).toContain('Slid left')
+})
+
+test('the word game is played from the prompt, and grades the guess in the reply', async ($, on) => {
+  PLAYABLE(on)
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+
+  expect((await say($, 'word')).text).toContain('word game')
+  const ran = await say($, 'parse')
+  // every letter comes back carrying its mark, so the reply reads on its own
+  expect(ran.text).toMatch(/[A-Z][=~·] [A-Z][=~·] [A-Z][=~·] [A-Z][=~·] [A-Z][=~·]/)
+
+  // a word of the wrong length is refused, and says how to change it
+  const wrong = await say($, 'invoice')
+  expect(wrong.text).toContain('7 letters')
+})
+
+test('switching, dealing, length and closing all answer from the prompt', async ($, on) => {
+  const kept = PLAYABLE(on)
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+
+  expect((await say($, 'word')).text).toContain('word game')
+  expect((await say($, '2048')).text).toContain('2048')
+  expect((await say($, 'new')).text).toContain('board')
+
+  const six = await say($, '6')
+  expect(six.text).toContain('6 letters')
+  expect(kept.wanted).toBe('6')
+
+  expect((await say($, 'close')).text).toContain('closed')
+  // and a word that means nothing says what the command does understand
+  expect((await say($, 'zzz9'))?.text).toContain('does not know')
+})

@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.2.0 — 2026-11-18
+
+Both games are played **from the prompt**, where the keyboard already is.
+
+Reaching into the pane meant taking the keyboard from the composer, and that
+turned out to be the one thing neither the plugin nor the person could rely
+on: the focus request is refused over a composer holding text, the `ctrl+x`
+`tab` chord lapses unless the two presses are quick, a terminal reports no
+click outside its fullscreen layout, and on an AZERTY board a digit needs
+shift. A slash command is answered every time, whatever holds the keyboard and
+however it is laid out.
+
+- `/sidequest w a s d` slides 2048 (`z` and `q` too), and the reply says the
+  score.
+- `/sidequest <word>` guesses, and the reply grades it letter by letter:
+  `P· A· R· S· E~`.
+- `/sidequest 2048` and `/sidequest word` switch, `/sidequest new` deals
+  again, `/sidequest 4`…`7` or `mixed` sets the length, `/sidequest close`
+  closes.
+- The pane still plays directly where the keyboard does reach it. It is the
+  faster way round when it works, and no longer the only one.
+
 ## 0.1.7 — 2026-11-18
 
 - Every letter of a guess carries its own mark — `T=` in place, `E~` elsewhere,

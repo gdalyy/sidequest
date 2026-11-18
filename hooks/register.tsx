@@ -23,6 +23,19 @@ const PANE = 'sidequest'
 // the line saying how to reach the pane. Inline, a pane is as tall as it asks
 // for, up to what the layout spares; docked it is ignored.
 const ROWS = 14
+
+/** What a slash argument means, for 2048. */
+const SAID: Record<string, Direction> = {
+  w: 'up', z: 'up', up: 'up',
+  s: 'down', down: 'down',
+  a: 'left', q: 'left', left: 'left',
+  d: 'right', right: 'right',
+}
+
+const USAGE =
+  'Play from here: /sidequest w a s d slides, /sidequest <word> guesses, ' +
+  '/sidequest 2048 or word switches, /sidequest new deals again, /sidequest 4..7 or mixed sets the length, ' +
+  '/sidequest close. Or put the keyboard in the pane with ctrl+x then tab, quickly, and play it directly.'
 const COMMAND = 'sidequest'
 const EMPTY_BOARD: Board = { cells: new Array(16).fill(0), score: 0, best: 0, isOver: false }
 const KEYS: Record<string, Direction> = { w: 'up', s: 'down', a: 'left', d: 'right' }
@@ -248,7 +261,84 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
-  on('command.run', { command: COMMAND }, async $ => {
+  /**
+   * Everything the games need, driven from the prompt.
+   *
+   * Reaching into the pane means taking the keyboard from the composer, and
+   * that turns out to be the one thing neither the plugin nor the person can
+   * rely on: the chord is refused over a composer holding text, it lapses if
+   * the two presses are not quick, and a terminal reports no click outside
+   * its fullscreen layout. A slash command is answered every time, whatever
+   * holds the keyboard and whatever the keyboard is laid out like.
+   */
+  on('command.run', { command: COMMAND }, async ($, e) => {
+    const said = e.args.trim().toLowerCase()
+
+    if (said !== '') {
+      await $.ui.open({ id: PANE, title: 'Sidequest', rows: ROWS })
+      isOpen = true
+
+      if (said === 'close' || said === 'quit') {
+        isOpen = false
+        await $.ui.close({ id: PANE })
+        return { text: 'Sidequest closed. /sidequest opens it again, where you left off.' }
+      }
+      if (said === '2048' || said === 'board') {
+        await update($, showing, () => 'board')
+        return { text: 'Playing 2048. /sidequest w, a, s or d slides; /sidequest word goes back to the word game.' }
+      }
+      if (said === 'word' || said === 'codele') {
+        await update($, showing, () => 'codele')
+        if (!(await read($, codele))) await newWord($, await read($, wanted))
+        return { text: 'Playing the word game. /sidequest <word> guesses; /sidequest 2048 goes back.' }
+      }
+      if (said === 'new') {
+        if ((await read($, showing)) === 'board') {
+          await reset($)
+          return { text: 'A new board.' }
+        }
+        await newWord($, await read($, wanted))
+        return { text: 'A new word.' }
+      }
+      if (/^(4|5|6|7|mixed)$/.test(said)) {
+        await update($, wanted, () => said)
+        await $.store.set('wanted', said).catch(() => undefined)
+        await update($, showing, () => 'codele')
+        await newWord($, said)
+        return { text: `The word game now asks for ${said === 'mixed' ? 'a varying number of' : said} letters.` }
+      }
+
+      const slide = SAID[said]
+      if (slide) {
+        await update($, showing, () => 'board')
+        await slideBoard($, slide)
+        const now = await read($, board)
+        return { text: `Slid ${slide}. Score ${now.score}${now.isOver ? ' — no moves left, /sidequest new deals another board.' : '.'}` }
+      }
+
+      if (/^[a-z]+$/.test(said)) {
+        await update($, showing, () => 'codele')
+        const game = (await read($, codele)) ?? (await newWord($, await read($, wanted)), await read($, codele))
+        if (!game) return { text: 'No word to guess yet. /sidequest word deals one.' }
+        if (said.length !== game.word.length) {
+          return { text: `That word is ${said.length} letters; this one wants ${game.word.length}. /sidequest ${game.word.length} changes the length.` }
+        }
+        await sayWord($, said, await read($, wanted))
+        const after = await read($, codele)
+        if (!after) return { text: 'The guess did not land.' }
+        if (after.isDone) {
+          return {
+            text: after.isWon
+              ? `${after.word.toUpperCase()} — solved in ${after.guesses.length}. It is ${after.from} jargon. /sidequest new deals another.`
+              : `Out of guesses. It was ${after.word.toUpperCase()}, ${after.from} jargon. /sidequest new deals another.`,
+          }
+        }
+        return { text: `${grade(said, after.word).map((m, i) => `${said[i]?.toUpperCase()}${MARK[m]}`).join(' ')} — guess ${after.guesses.length + 1} of ${TRIES}.` }
+      }
+
+      return { text: `Sidequest does not know "${said}". ${USAGE}` }
+    }
+
     // `focus` is a request the surface grants only over an empty composer,
     // and typing /sidequest is text in the composer, so a pane opened this way
     // does not take the keyboard. Ask anyway — another way in may be able to —

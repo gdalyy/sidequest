@@ -1,8 +1,8 @@
 {
   "name": "sidequest",
   "displayName": "Sidequest",
-  "version": "0.1.7",
-  "description": "2048 and a Wordle built from your own code, in a pane beside the chat, opened while Claude works and switched with one key.",
+  "version": "0.2.0",
+  "description": "2048 and a Wordle built from your own project's words, in a pane beside the chat \u2014 played from the prompt, so the keyboard never has to move.",
   "author": {
     "name": "Ghaith Daly"
   },
