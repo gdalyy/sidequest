@@ -46,15 +46,28 @@ test('the game pane draws a board and slides when w a s d are pressed', async ($
     expect(await ui.find({ type: 'Button', key })).toBeDefined()
   }
 
-  // the AZERTY spelling is said, not bound
-  expect(await ui.find({ type: 'Text', text: /z q s d/ })).toBeDefined()
-
-  // and not one control answers to a key — see the test below for why
-  for (const key of ['up', 'left', 'down', 'right', 'new', 'swap', 'close']) {
+  // the four slides, and the same four keys under the same fingers on AZERTY
+  const bound: Record<string, string> = {
+    up: 'w', left: 'a', down: 's', right: 'd', 'up-az': 'z', 'left-az': 'q', new: 'r', swap: 'g',
+  }
+  const seen: string[] = []
+  for (const [key, expected] of Object.entries(bound)) {
     const found = await ui.find({ type: 'Button', key })
     expect(found).toBeDefined()
-    expect((found as { props?: { hotkey?: string } })?.props?.hotkey).toBeUndefined()
+    const hotkey = (found as { props?: { hotkey?: string } })?.props?.hotkey
+    expect(hotkey).toBe(expected)
+    seen.push(String(hotkey))
+    // never a digit: a digit needs shift on an AZERTY board, so shift+2 and
+    // the numeric keypad both arrive as a key nobody meant to press
+    expect(/^[a-z]$/.test(String(hotkey))).toBe(true)
   }
+  // and no two controls answer to one key
+  expect(new Set(seen).size).toBe(seen.length)
+
+  // nothing closes the pane: the engine draws its own mark and answers
+  // ctrl+x x, and a second way out one key from the one that switches games
+  // is how a game shut itself while its owner reached for the other
+  expect(await ui.find({ type: 'Button', key: 'close' })).toBeUndefined()
 
   // a new board holds two tiles; after a slide it still holds at least two
   const tiles = (text: string) => (text.match(/\b(2|4|8|16|32)\b/g) ?? []).length
@@ -126,7 +139,7 @@ test('the word pane draws coloured tiles and takes a guess', { options: { mode: 
   await ui.unmount()
 })
 
-test('no control of either game answers to any key at all', { options: { mode: 'codele' } }, async ($, on) => {
+test('the word game binds no key, and its field takes the controls', { options: { mode: 'codele' } }, async ($, on) => {
   on('command.register', () => ({ value: { command: 'sidequest' } }))
   on('store.get', () => ({ value: 0 }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
@@ -139,16 +152,19 @@ test('no control of either game answers to any key at all', { options: { mode: '
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
 
-  // A hotkey here is a key taken out of the terminal's mouth, and the pane
-  // has no way to know what the person meant by it. `2` meant close, and on
-  // an AZERTY board a digit needs shift: shift+2 while reaching for the other
-  // game shut the pane, and the numeric keypad did it too. A letter is no
-  // better — it is swallowed by, or swallows, a guess. So: none.
-  for (const key of ['swap', 'close', 'length']) {
+  // Here every letter is typed into the field, so a letter cannot also be a
+  // control, and a digit needs shift on AZERTY. Nothing is bound.
+  for (const key of ['swap', 'length']) {
     const found = await ui.find({ type: 'Button', key })
     expect(found).toBeDefined()
     expect(found?.props?.hotkey).toBeUndefined()
   }
+  expect(await ui.find({ type: 'Button', key: 'close' })).toBeUndefined()
+
+  // the field carries the controls instead, so there is nothing to collide
+  expect(await ui.find({ type: 'Input', key: 'guess' })).toBeDefined()
+  await ui.input({ key: 'guess', text: '2048' })
+  expect(await ui.find({ type: 'Text', text: /┌─/ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -230,7 +246,7 @@ test('a window too narrow for an unasked pane is said once, not silently', async
   expect(said[0]).toContain('144 columns')
 })
 
-test('each game fits a short inline pane and says what to type', async ($, on) => {
+test('each game fits a short inline pane and says how to play it', async ($, on) => {
   on('command.register', () => ({ value: { command: 'sidequest' } }))
   on('store.get', () => ({ value: 0 }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
@@ -245,19 +261,19 @@ test('each game fits a short inline pane and says what to type', async ($, on) =
   for (const focused of [false, true]) {
     const ui = await $.ui.mount({ ...PANE, surface: 'terminal', props: { ...PANE.props, isFocused: focused } })
 
-    // the pane says what to type, and says the same thing either way: nothing
-    // on screen depends on who holds the keyboard, because the answer is
-    // always the prompt
-    const hint = await ui.find({ type: 'Text', text: /\/sq close/ })
+    // the pane says which of the two ways is open to you right now, rather
+    // than leaving you to guess whether it has the keyboard
+    const hint = await ui.find({ type: 'Text', text: focused ? /Playing|Typing here/ : /ctrl\+x then tab/ })
     expect(hint).toBeDefined()
-    // neither a click nor a chord is offered: a terminal reports no click
-    // outside its fullscreen layout, and the chord is refused over a composer
+    // a click is not offered: a terminal reports none outside fullscreen
     expect(hint?.text).not.toContain('click')
-    expect(hint?.text).not.toContain('ctrl+x')
+    // and unfocused, the prompt is always named as the way that always works
+    if (!focused) expect(hint?.text).toContain('/sq')
 
     // the controls are drawn too, not pushed below what the pane can show
     expect(await ui.find({ type: 'Button', key: 'swap' })).toBeDefined()
-    expect(await ui.find({ type: 'Button', key: 'close' })).toBeDefined()
+    // and closing is the engine's own mark, never a key of ours
+    expect(await ui.find({ type: 'Button', key: 'close' })).toBeUndefined()
 
     await ui.unmount()
   }
@@ -414,9 +430,13 @@ test('the word game is played from the prompt, and grades the guess in the reply
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
 
   expect((await say($, 'word')).text).toContain('word game')
-  const ran = await say($, 'parse')
+  // `vivid` shares no letter with any word in this pool, so the grading is
+  // the same whichever of the five was dealt. Guessing one of the pool's own
+  // words solves it one run in five, and a solved reply is not a graded one.
+  const ran = await say($, 'vivid')
   // every letter comes back carrying its mark, so the reply reads on its own
   expect(ran.text).toMatch(/[A-Z][=~·] [A-Z][=~·] [A-Z][=~·] [A-Z][=~·] [A-Z][=~·]/)
+  expect(ran.text).toContain('guess 2 of 6')
 
   // a word of the wrong length is refused, and says how to change it
   const wrong = await say($, 'invoice')

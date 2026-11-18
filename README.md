@@ -128,24 +128,39 @@ Your best score is kept across sessions.
 
 ## Usage
 
+Type `/sq` to open the pane, then **ctrl+x** and **tab**, one straight after
+the other, to put the keyboard in it. After that you just play:
+
 ```
-/sq            open the pane
-/sq w a s d    slide 2048 (z q s d as well, for an AZERTY board)
-/sq ddss       a run of slides, in one go
-/sq parse      guess, in the word game
-/sq word       the word game    /sq 2048  2048    /sq next  the other one
-/sq new        another board, or another word
-/sq 4 5 6 7    how many letters the word game asks for    /sq mixed
-/sq close      close the pane
+2048            w a s d   slide (z q s d too, same four fingers on AZERTY)
+                r         new board
+                g         go to the word game
+word game       type the word, enter
+                type 2048, enter   go back
+                type new / 4 / 5 / 6 / 7 / mixed, enter
+both            Esc       give the keyboard back to the prompt
+                ctrl+x x  close the pane, or click the ✕ on its frame
 ```
 
-`/sidequest` is the same command spelled out, for when you want to find it in
-the menu.
+**No digit is bound to anything, and nothing of ours closes the pane.** Those
+two rules are the whole design, and the section below says why.
 
-**Both games are played from the prompt**, where the keyboard already is, and
-**nothing else is bound to anything.** No key you press while the pane is open
-can switch a game, close it, or go anywhere but the prompt. The reply carries
-the result, so nothing has to be read out of the pane to know what happened:
+The word game has no hotkeys at all — its text field takes the controls as
+well as the guesses, because every letter there belongs to the word you are
+spelling.
+
+### Or from the prompt, without touching focus
+
+Every one of those also works as a command, for when the pane does not have
+the keyboard and you would rather not go and get it:
+
+```
+/sq            open          /sq new        another board, or word
+/sq w a s d    slide         /sq 4 5 6 7    letters wanted   /sq mixed
+/sq ddss       a run of them /sq word       the word game
+/sq parse      guess         /sq 2048       2048    /sq next  the other one
+/sq close      close
+```
 
 ```
 > /sq ddss
@@ -156,27 +171,34 @@ the result, so nothing has to be read out of the pane to know what happened:
 ```
 
 `2048` and `word` name a game outright rather than toggling, so asking twice
-for the one already showing does nothing and neither game can strand you.
+for the one already showing does nothing and neither can strand you.
+`/sidequest` is the same command spelled out, for finding it in the menu.
 
 ### Why not just play the pane
 
-Because reaching into it means taking the keyboard off the composer, and that
-is the one thing that cannot be relied on. The focus request is refused over a
-composer holding text — and typing `/sq` is text in the composer. The `ctrl+x`
-`tab` chord lapses unless the two presses are quick. A terminal reports no
-click outside its fullscreen layout.
+### Two rules about keys, and why
 
-So the pane asks for the keyboard **never**, and binds **no key at all**. That
-second half matters more than it sounds. A hotkey in a pane is a key taken out
-of the terminal's mouth, and the pane has no way to know what you meant by it.
-On an AZERTY board every digit needs shift, so `shift+2` — and the numeric
-keypad — both arrive as plain `2`, which used to mean *close*: the game shut
-itself while its owner was reaching for the other one. Meanwhile the word
-game's text field ate the digit that would have switched back. Nothing is
-bound now, so none of that can happen on any layout.
+**No digit is ever a hotkey.** On an AZERTY board every digit needs shift, so
+`shift+2` arrives as a plain `2` — and so does the numeric keypad. A digit is
+a different physical key on every layout; a letter is the same one everywhere.
+So the slides are `w a s d`, with `z q s d` bound alongside them, which is the
+same four fingers on an AZERTY board.
 
-The buttons in the pane stay, and a click still works where the terminal
-reports one. They are a shortcut, never the only way in.
+**Nothing of ours closes the pane.** The engine already draws a close mark on
+the frame and answers `ctrl+x x`. A second way out, one key away from the one
+that switches games, is not a convenience — it is a game that shuts itself
+while its owner reaches for the other one. There is no close hotkey.
+
+The remaining trouble is only *getting* the keyboard. A pane is granted focus
+only over an empty composer, and typing `/sq` is text in the composer, so the
+pane never asks — you take it with `ctrl+x tab`, two presses one straight
+after the other, and `Esc` hands it back. The chord lapses if you pause
+between them, which looks exactly like a key that does nothing. Some
+terminals, a JetBrains one among them, may take `ctrl+x` for themselves.
+
+That is why the slash command exists as well, and why it does everything the
+keys do. A click works too, but only where the terminal reports clicks, which
+is its fullscreen layout — above the prompt the mouse belongs to the terminal.
 
 In `/config`: **Open after** (seconds before the pane opens unasked; `0` never
 does), **Game** and **Word length** — what a machine that has never chosen one
@@ -212,16 +234,22 @@ it, then `/reload-plugins` in a running session.
 
 ## First run
 
-Type `/sq`. The pane opens beside the transcript and the keyboard stays
-exactly where it was — in the prompt. Play from there: `/sq d`, `/sq parse`,
-`/sq next`. The pane's last line always says what to type.
+Type `/sq`. The pane opens beside the transcript, and the keyboard stays where
+it was — in the prompt. Press **ctrl+x** then **tab**, quickly, to move it into
+the pane, and **Esc** to hand it back.
 
-There is no focus to manage and nothing to press to get back, because nothing
-was ever taken. Esc does whatever your terminal and your editor already make
-it do; sidequest does not want it.
+The pane's bottom line always says which of the two you are in: *"Playing —
+w a s d slide"* when it has the keyboard, and *"ctrl+x then tab… or /sq d from
+the prompt"* when it does not. You never have to guess.
 
-After that the pane opens by itself, twenty seconds into any turn that runs
-that long, and the same holds: what you are typing still reaches the prompt.
+The pane does not take the keyboard by itself, and cannot: focus is granted
+only over an empty composer, and typing `/sq` is text in the composer. That
+rule is what stops a pane opening mid-sentence and swallowing it, which is
+worth more than saving a keypress.
+
+After that it opens by itself, twenty seconds into any turn that runs that
+long, and without taking the keyboard — what you are typing still reaches the
+prompt.
 
 One thing worth knowing: a pane the engine opens **unasked** is seated only
 from **144 columns**, and from 110 once you have opened it yourself at least

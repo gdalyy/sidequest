@@ -196,11 +196,31 @@ async function newWord($: EngineInterface, wanted: string): Promise<void> {
 }
 
 /** Takes a guess, starting a new word once the last one is finished. */
-async function sayWord($: EngineInterface, text: string, wanted: string): Promise<void> {
+/**
+ * What the word game's field does with a line.
+ *
+ * The field is the only surface this game has, so it carries the controls as
+ * well as the guesses. No key is bound in this pane and none can be: every
+ * letter belongs to the word being spelled, and a digit needs shift on an
+ * AZERTY board. A typed word costs an Enter that was going to be pressed
+ * anyway.
+ */
+async function sayWord($: EngineInterface, text: string, length: string): Promise<void> {
+  const said = text.trim().toLowerCase()
+
+  if (said === '2048' || said === 'board') return void (await update($, showing, () => 'board'))
+  if (said === 'new') return newWord($, length)
+  if (/^(4|5|6|7|mixed)$/.test(said)) {
+    await update($, wanted, () => said)
+    await $.store.set('wanted', said).catch(() => undefined)
+    return newWord($, said)
+  }
+
   const game = await read($, codele)
-  if (!game) return newWord($, wanted)
-  if (game.isDone) return newWord($, wanted)
-  await update($, codele, g => (g ? guess(g, text) : g))
+  if (!game) return newWord($, length)
+  if (game.isDone) return newWord($, length)
+  if (said === '') return
+  await update($, codele, g => (g ? guess(g, said) : g))
 }
 
 /**
@@ -451,10 +471,6 @@ export const register: Register = (on, options) => {
         if (next === 'codele' && !(await read($, codele))) await newWord($, await read($, wanted))
       })()
     }
-    const onClose = () => {
-      isOpen = false
-      void $.ui.close({ id: PANE })
-    }
 
     if ((await read($, showing)) === 'codele') {
       const letters = await read($, wanted)
@@ -540,10 +556,19 @@ export const register: Register = (on, options) => {
               })()}
             </Text>
           )}
+          {/*
+            Every letter here is typed into the field, so a letter cannot also
+            be a control: pressing `g` to spell a word must not swap the game
+            out from under it. Digits are no good either — shift on AZERTY.
+
+            So nothing is bound, and the field takes the controls instead. A
+            word of the right length is a guess; `2048`, `new`, `4`..`7` and
+            `mixed` are what they say. One surface, no collisions, no layout.
+          */}
           <Input
             key="guess"
             autoFocus
-            placeholder={word.isDone ? 'enter for another word' : `${word.length} letters, then enter`}
+            placeholder={word.isDone ? 'enter for another word, or 2048' : `${word.length} letters — or 2048, new, 4-7`}
             onSubmit={(value: string) => void sayWord($, value, letters)}
           />
           {/*
@@ -558,8 +583,6 @@ export const register: Register = (on, options) => {
           <Box>
             <Button key="swap" plain dimColor label="2048" onPress={onSwitch} />
             <Text> </Text>
-            <Button key="close" plain dimColor label="close" onPress={onClose} />
-            <Text> </Text>
             <Button
               key="length"
               plain
@@ -568,7 +591,11 @@ export const register: Register = (on, options) => {
               onPress={onCycleLength}
             />
           </Box>
-          <Text dimColor>/sq {'<word>'} guesses · /sq 2048 · /sq new · /sq close</Text>
+          <Text color={e.props.isFocused ? 'text-success' : undefined} dimColor={!e.props.isFocused}>
+            {e.props.isFocused
+              ? 'Typing here — Esc goes back to the prompt'
+              : 'ctrl+x then tab, quickly, to type here · or /sq <word> from the prompt'}
+          </Text>
         </Box>
       )
     }
@@ -591,20 +618,34 @@ export const register: Register = (on, options) => {
             </Box>
           ))}
           {b.isOver && <Text color="text-danger">No moves left. /sq new deals another board.</Text>}
+          {/*
+            Letters, never digits. A digit needs shift on an AZERTY board, so
+            `shift+2` — and the numeric keypad — arrive as a plain `2`, which
+            is a key nobody meant to press. A letter is the same key on every
+            layout, and nothing is typed in this game, so none of them collide.
+
+            And nothing here closes the pane. The engine already draws a close
+            mark on the frame and answers ctrl+x x; a second way in, one
+            keystroke from the one that switches games, was the whole bug.
+          */}
           <Box>
-            <Button key="up" plain label="up" onPress={onSlide('up')} />
+            <Button key="up" hotkey="w" plain label="up" onPress={onSlide('up')} />
             <Text> </Text>
-            <Button key="left" plain label="left" onPress={onSlide('left')} />
+            <Button key="left" hotkey="a" plain label="left" onPress={onSlide('left')} />
             <Text> </Text>
-            <Button key="down" plain label="down" onPress={onSlide('down')} />
+            <Button key="down" hotkey="s" plain label="down" onPress={onSlide('down')} />
             <Text> </Text>
-            <Button key="right" plain label="right" onPress={onSlide('right')} />
+            <Button key="right" hotkey="d" plain label="right" onPress={onSlide('right')} />
             <Text> </Text>
-            <Button key="new" plain dimColor label="new" onPress={() => void reset($)} />
+            <Button key="new" hotkey="r" plain dimColor label="new" onPress={() => void reset($)} />
             <Text> </Text>
-            <Button key="swap" plain dimColor label="word game" onPress={onSwitch} />
+            <Button key="swap" hotkey="g" plain dimColor label="word game" onPress={onSwitch} />
+          </Box>
+          {/* the same four keys under the same fingers on an AZERTY board */}
+          <Box>
+            <Button key="up-az" hotkey="z" plain dimColor label="azerty z" onPress={onSlide('up')} />
             <Text> </Text>
-            <Button key="close" plain dimColor label="close" onPress={onClose} />
+            <Button key="left-az" hotkey="q" plain dimColor label="q" onPress={onSlide('left')} />
           </Box>
           {/*
             W-A-S-D is a shape on a QWERTY board, not a set of letters: under
@@ -613,9 +654,13 @@ export const register: Register = (on, options) => {
             thing to go when the room is short.
           */}
           <Box key="azerty" display={hasSpareRow ? 'flex' : 'none'}>
-            <Text dimColor>/sq w a s d slides — or z q s d. A run works too: /sq ddss</Text>
+            <Text dimColor>{e.props.isFocused ? 'g: word game · r: new board · Esc: back to the prompt' : 'g: word game · r: new board'}</Text>
           </Box>
-          <Text dimColor>/sq word · /sq new · /sq close</Text>
+          <Text color={e.props.isFocused ? 'text-success' : undefined} dimColor={!e.props.isFocused}>
+            {e.props.isFocused
+              ? 'Playing — w a s d slide (z q s d too)'
+              : 'ctrl+x then tab, quickly, to slide with w a s d · or /sq d from the prompt'}
+          </Text>
         </Box>
       )
     }

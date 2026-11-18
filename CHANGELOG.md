@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.4.0 — 2026-11-19
+
+**You play with the keys again.** 0.3.0 threw out the hotkeys to stop the pane
+closing itself. That was an overcorrection: the bug report proved the keys
+*were* reaching the pane — `shift+2` really did close it — so the channel was
+never broken. The bindings were. Typing `/sq` for every move was not a fix.
+
+So the keys are back, under two rules that make the old bug impossible:
+
+- **No digit is ever a hotkey.** A digit needs shift on an AZERTY board, so
+  `shift+2` and the numeric keypad both arrive as a plain `2`. A letter is the
+  same physical key everywhere. 2048 slides on `w a s d`, with `z q s d` bound
+  alongside — the same four fingers on an AZERTY board — plus `r` for a new
+  board and `g` for the word game.
+- **Nothing of ours closes the pane.** The engine already draws a close mark
+  on the frame and answers `ctrl+x x`. A second way out, one key from the one
+  that switches games, is how a game shuts itself while its owner reaches for
+  the other. There is no close hotkey, in either game.
+
+The word game binds **no key at all** — every letter there belongs to the word
+being spelled. Its text field takes the controls instead: type the word to
+guess, or `2048`, `new`, `4`–`7`, `mixed`. One surface, nothing to collide.
+
+The pane's bottom line now says which of the two you are in — *"Playing —
+w a s d slide"* or *"ctrl+x then tab… or /sq d from the prompt"* — so the
+focus state is never something to guess at.
+
+Everything 0.3.0 added from the prompt stays, as the way that needs no focus:
+`/sq`, runs of moves (`/sq ddss`), and `2048`/`word` naming a game outright
+with `next` as the toggle.
+
+Driven through a real session on a pty: `ctrl+x tab` took the keyboard, twelve
+`w a s d` presses played the board (the kept best rose 4 → 8 → 76 across runs
+of 5 and 16 presses, and stayed put on a run with none), `g` reached the word
+game, a typed `parse` was graded, and a typed `2048` came back to the board.
+
 ## 0.3.0 — 2026-11-18
 
 **The pane binds no key at all, and never asks for the keyboard.**
