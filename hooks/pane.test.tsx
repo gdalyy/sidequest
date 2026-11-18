@@ -356,7 +356,7 @@ test('the word length is cycled from the pane and kept', async ($, on) => {
 })
 
 /** Everything the command can be told, with a repository behind it. */
-const PLAYABLE = (on: Parameters<Parameters<typeof test>[2]>[1]) => {
+const PLAYABLE = (on: any) => {
   on('command.register', () => ({ value: { command: 'sidequest' } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('ui.close', () => ({ value: undefined }))
