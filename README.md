@@ -184,10 +184,14 @@ it, then `/reload-plugins` in a running session.
 
 ## First run
 
-Type `/sidequest`. The pane opens beside the transcript; **click it**, or
-press **ctrl+x** and then **tab**, to put the keyboard in it. **Esc** gives
-the prompt back. The pane's last line always says which of the two to do, so
-neither has to be remembered.
+Type `/sidequest`. The pane opens beside the transcript; press **ctrl+x** and
+then **tab** to put the keyboard in it, and **Esc** to give it back. The
+pane's last line always says which of the two to press.
+
+A click focuses a pane too, but only where the terminal reports clicks, which
+is its fullscreen layout. Above the prompt, in the ordinary screen, the mouse
+belongs to the terminal — selecting text with it is the terminal's own job —
+so the keyboard is the way in.
 
 `ctrl+x tab` is a chord of two presses rather than one combination: ctrl+x,
 released, then tab, **one straight after the other** — the chord lapses if you

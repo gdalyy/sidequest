@@ -33,7 +33,8 @@ test('the game pane draws a board and slides when w a s d are pressed', async ($
 
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
   const ran = await $.command.run(RUN)
-  expect(ran.text).toContain('w a s d')
+  // the keys live in the pane; the command says only how to reach it
+  expect(ran.text).toContain('ctrl+x then tab')
 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
 
@@ -246,6 +247,8 @@ test('each game fits a short inline pane and says how to reach it', async ($, on
 
     // the way in and the way out are on screen, not only in the README
     const hint = await ui.find({ type: 'Text', text: focused ? /Esc gives the prompt/ : /ctrl\+x then tab/ })
+    // a click is not offered: a terminal reports none outside its fullscreen layout
+    expect(hint?.text).not.toContain('click')
     expect(hint).toBeDefined()
 
     // the controls are drawn too, not pushed below what the pane can show
@@ -266,8 +269,10 @@ test('the command says how to take the keyboard, never that it has it', async ($
   const ran = await $.command.run(RUN)
 
   // focus is refused over a composer holding the command that was just typed
-  expect(ran.text).toContain('ctrl+x and then tab')
+  expect(ran.text).toContain('ctrl+x then tab')
   expect(ran.text).not.toContain('has the keyboard')
+  // one line, not a manual: everything else is drawn where it is used
+  expect((ran.text ?? '').length).toBeLessThan(140)
 })
 
 test('a short pane sheds its notes before it sheds the board', async ($, on) => {

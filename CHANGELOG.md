@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.6 — 2026-11-18
+
+- `/sidequest` says one thing: how to reach the pane. The keys are drawn in
+  the pane itself, and repeating them in the transcript only buried the one
+  thing that was not.
+- The marks under each guess give way where the room is short. A guess is two
+  rows with them, so six guesses no longer fitted and the earliest scrolled
+  out of sight; the colour carries a guess alone when it has to.
+- The pane no longer offers a click. A terminal reports clicks only in its
+  fullscreen layout, and naming a way in that does nothing is worse than
+  naming none.
+
 ## 0.1.5 — 2026-11-18
 
 - A graded guess colours the letters themselves rather than painting a block

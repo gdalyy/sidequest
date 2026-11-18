@@ -244,10 +244,9 @@ export const register: Register = (on, options) => {
     await $.ui.open({ id: PANE, title: 'Sidequest', focus: true, rows: ROWS })
     isOpen = true
     return {
-      text:
-        'Sidequest is open. Press ctrl+x and then tab to play — two presses, quickly, one after the other: ' +
-        'the chord lapses if you pause. Esc gives the prompt back. In 2048: w a s d slide, t is the word ' +
-        'game, x closes. In the word game every letter is typed, so 1 and 2 are the controls there.',
+      // the keys are drawn in the pane; repeating them here only buries the
+      // one thing that is not, which is how to reach it at all
+      text: 'Sidequest is open. Press ctrl+x then tab — quickly, one after the other — to play. Esc comes back.',
     }
   }).catch(($, e, next) => ({
     text: `sidequest could not open: ${next.error.message ?? 'unknown error'}`,
@@ -323,6 +322,9 @@ export const register: Register = (on, options) => {
       }
       const marks = letterMarks(word)
       const rows: Grade[][] = word.guesses.map(g => grade(g, word.word))
+      // header, the six guess rows, the in/out line, the field, the controls
+      // and the line saying how to reach the pane
+      const showMarks = room >= 6 + TRIES * 2
 
       return (
         <Box flexDirection="column">
@@ -341,7 +343,13 @@ export const register: Register = (on, options) => {
                   )
                 })}
               </Box>
-              <Box>
+              {/*
+                The marks say in writing what the colour says, which matters
+                where there is no colour — but they double the height of every
+                guess. Where the room is short they go, newest guess last, and
+                the colour carries it alone.
+              */}
+              <Box key={`marks-${row}`} display={showMarks ? 'flex' : 'none'}>
                 {Array.from({ length: word.length }, (_, i) => i).map(i => {
                   const mark = (rows[row] ?? [])[i] ?? 'absent'
                   return (
@@ -354,7 +362,12 @@ export const register: Register = (on, options) => {
             </Box>
           ))}
           {Array.from(
-            { length: Math.max(0, Math.min(TRIES - word.guesses.length, room - 6 - word.guesses.length * 2)) },
+            {
+              length: Math.max(
+                0,
+                Math.min(TRIES - word.guesses.length, room - 6 - word.guesses.length * (showMarks ? 2 : 1)),
+              ),
+            },
             (_, i) => i,
           ).map(i => (
             <Box key={`empty-${i}`}>
@@ -421,7 +434,7 @@ export const register: Register = (on, options) => {
             <Button key="close" hotkey="2" plain dimColor label="close" onPress={onClose} />
           </Box>
           <Text dimColor>
-            {e.props.isFocused ? 'Esc gives the prompt back' : 'click here, or ctrl+x then tab (quickly), to play'}
+            {e.props.isFocused ? 'Esc gives the prompt back' : 'ctrl+x then tab, quickly, to play'}
           </Text>
         </Box>
       )
@@ -474,7 +487,7 @@ export const register: Register = (on, options) => {
             <Button key="close" hotkey="x" plain dimColor label="close" onPress={onClose} />
           </Box>
           <Text dimColor>
-            {e.props.isFocused ? 'Esc gives the prompt back' : 'click here, or ctrl+x then tab (quickly), to play'}
+            {e.props.isFocused ? 'Esc gives the prompt back' : 'ctrl+x then tab, quickly, to play'}
           </Text>
         </Box>
       )
