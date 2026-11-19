@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.6.1 — 2026-11-19
+
+**The pane now says why it is where it is**, instead of leaving two invisible
+rules of the engine's to be guessed at:
+
+```
+Above the prompt: the terminal is 92 columns. At 110 it docks beside the
+transcript instead, and the buttons answer a click.
+```
+
+or, on the main screen, that clicks are never reported there at all. Docked,
+it says nothing, because then everything works.
+
+Nothing in this mod decides that seat, and nothing in it can. A pane docks
+beside the transcript only under the fullscreen layout and only from 110
+columns; below that the engine puts it above the prompt, where it pushes the
+transcript up. All this release does is stop that being a silent rule.
+
+### Esc, in a JetBrains terminal
+
+Not a bug in this mod, and never was: PhpStorm binds **Escape** to *Switch
+Focus to Editor* in the terminal tool window and takes the key before Claude
+Code sees it. **Settings → Tools → Terminal** → turn off *Move focus to the
+editor with Escape* (2025.2+), or turn on *Override IDE shortcuts* (earlier).
+Written down in the README, with the trade-off.
+
 ## 0.6.0 — 2026-11-19
 
 **Buttons, a minimize that a terminal can actually do, and a plain answer to

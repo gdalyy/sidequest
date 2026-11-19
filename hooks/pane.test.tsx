@@ -524,3 +524,45 @@ test('the pane rolls up to one line and opens again from either game', async ($,
   expect((wordMini as { props?: { hotkey?: string } })?.props?.hotkey).toBeUndefined()
   await word.unmount()
 })
+
+// Two rules of the engine's decide where the pane sits and whether a click
+// reaches it, and neither shows from inside the game. A person whose pane is
+// above the prompt and whose buttons do nothing is seeing both at once.
+test('a pane that is not docked says why, and a docked one says nothing', async ($, on) => {
+  PLAYABLE(on)
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  await say($, '')
+
+  // the main screen: clicks are never reported there, so say so
+  const main = await $.ui.mount({
+    ...PANE,
+    surface: 'terminal',
+    props: { ...PANE.props, placement: 'inline' },
+    viewport: { columns: 140, rows: 44, isFullscreen: false },
+  })
+  const said = await main.find({ type: 'Text', text: /Above the prompt/ })
+  expect(said).toBeDefined()
+  expect(String(said?.text)).toContain('main screen')
+  await main.unmount()
+
+  // fullscreen but too narrow: name the width, and the width that would do it
+  const narrow = await $.ui.mount({
+    ...PANE,
+    surface: 'terminal',
+    props: { ...PANE.props, placement: 'inline' },
+    viewport: { columns: 92, rows: 44, isFullscreen: true },
+  })
+  const why = await narrow.find({ type: 'Text', text: /Above the prompt/ })
+  expect(String(why?.text)).toContain('92 columns')
+  expect(String(why?.text)).toContain('110')
+  await narrow.unmount()
+
+  // docked, where everything works: no note at all
+  const docked = await $.ui.mount({
+    ...PANE,
+    surface: 'terminal',
+    viewport: { columns: 140, rows: 44, isFullscreen: true },
+  })
+  expect(await docked.find({ type: 'Text', text: /Above the prompt/ })).toBeUndefined()
+  await docked.unmount()
+})

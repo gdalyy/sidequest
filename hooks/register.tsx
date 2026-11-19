@@ -286,6 +286,26 @@ async function swapTo($: EngineInterface, id: string): Promise<void> {
  * Shuts whichever game is up. The engine's own mark does this too; this is
  * the same thing under a pointer, for the person who would rather click.
  */
+/**
+ * Why the pane is where it is, when it is not where a person expects.
+ *
+ * Two rules of the engine's decide it, and neither is visible from inside the
+ * game: a pane docks beside the transcript only under the fullscreen layout
+ * and only from 110 columns, and a click is reported only under that same
+ * layout. Someone whose pane sits above the prompt and whose buttons do
+ * nothing is seeing both rules at once, with nothing on screen to say so.
+ */
+function seatNote(placement: string, columns?: number, isFullscreen?: boolean): string | undefined {
+  if (placement === 'dock') return undefined
+  if (isFullscreen === false) {
+    return 'Above the prompt: this terminal runs on the main screen, not fullscreen. The buttons cannot be clicked there — use the keys, or m to roll this up.'
+  }
+  if (typeof columns === 'number' && columns < 110) {
+    return `Above the prompt: the terminal is ${columns} columns. At 110 it docks beside the transcript instead, and the buttons answer a click.`
+  }
+  return 'Above the prompt rather than beside the transcript. m rolls this up to one line.'
+}
+
 /** Rolls the pane up to one line, or back down. */
 async function toggleMini($: EngineInterface): Promise<void> {
   await update($, isMini, on => !on)
@@ -410,6 +430,9 @@ export const register: Register = (on, options) => {
   // to need shift on an AZERTY board, or to sit one key from closing the pane.
   on('ui.render', { component: 'Pane', requestId: PANE_BOARD }, async ($, e) => {
     const { Box, Button, Input, Text } = $.ui.resolve(e)
+    // say why the pane is above the prompt and why a click does nothing: both
+    // are rules of the engine's, and neither shows from inside the game
+    const seat = seatNote(e.props.placement, e.viewport?.columns, e.viewport?.isFullscreen)
     // the room the body actually has; a pane that asked for more than the
     // layout could spare still has to draw inside what it was given
     const room = e.props.scroll?.bodyRows ?? ROWS
@@ -507,6 +530,7 @@ export const register: Register = (on, options) => {
             reports presses in the fullscreen layout, where this pane is
             docked. Where it does not, the keys above still play the game.
           */}
+          {seat && <Text dimColor>{seat}</Text>}
           <Box key="controls">
             <Button
               key="click-swap"
@@ -538,6 +562,9 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'Pane', requestId: PANE_WORD }, async ($, e) => {
     const { Box, Button, Input, Text } = $.ui.resolve(e)
+    // say why the pane is above the prompt and why a click does nothing: both
+    // are rules of the engine's, and neither shows from inside the game
+    const seat = seatNote(e.props.placement, e.viewport?.columns, e.viewport?.isFullscreen)
     // the room the body actually has; a pane that asked for more than the
     // layout could spare still has to draw inside what it was given
     const room = e.props.scroll?.bodyRows ?? ROWS
@@ -686,6 +713,7 @@ export const register: Register = (on, options) => {
             buttons stay because a click still works in a fullscreen terminal;
             the keyboard is never touched.
           */}
+          {seat && <Text dimColor>{seat}</Text>}
           <Box key="controls">
             <Button
               key="length"

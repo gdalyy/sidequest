@@ -163,6 +163,24 @@ the fullscreen layout**: on the main screen Claude Code never turns mouse
 reporting on, so there they draw but do not answer. Every one has a keyboard
 route, so nothing depends on it.
 
+### If Esc puts the cursor in your editor (JetBrains)
+
+Then Esc is never reaching Claude Code. PhpStorm, IntelliJ and the rest bind
+**Escape** to *Switch Focus to Editor* in the terminal tool window, and the IDE
+takes the key first. No plugin can see it, so no plugin can fix it.
+
+**Settings → Tools → Terminal**, then depending on your version:
+
+- 2025.2 and later — turn off **Move focus to the editor with Escape**
+- earlier — turn on **Override IDE shortcuts** (*use shell-specific shortcuts
+  instead of IDE shortcuts when the Terminal tool window is active*)
+
+Either one gives Escape back to the terminal. The trade-off, reported by
+JetBrains users: with the override on, `Esc`+`b`/`f` no longer walk by word in
+the shell.
+
+Until then, `m` rolls the pane up without needing Esc at all.
+
 ### Where the pane sits, and minimizing it
 
 The engine docks a pane beside the transcript in fullscreen **from 110
