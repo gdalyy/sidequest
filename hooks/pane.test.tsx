@@ -3,9 +3,9 @@ import { expect, test } from 'claude-code/testing'
 const PANE = {
   plugin: 'sidequest',
   component: 'Pane',
-  requestId: 'sidequest',
+  requestId: 'sidequest-2048',
   props: {
-    title: 'Sidequest',
+    title: '2048',
     isFocused: false,
     bodyColumns: 48,
     placement: 'dock',
@@ -13,6 +13,9 @@ const PANE = {
     view: {},
   },
 } as const
+
+/** The second game's pane. The engine shows one and tabs the rest. */
+const WORD_PANE = { ...PANE, requestId: 'sidequest-word', props: { ...PANE.props, title: 'Word' } } as const
 
 /** What the engine hands `command.run` when /sidequest is typed in the composer. */
 const RUN = {
@@ -33,9 +36,9 @@ test('the game pane draws a board and slides when w a s d are pressed', async ($
 
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
   const ran = await $.command.run(RUN)
-  // the command answers with how to play, and never sends anyone chasing focus
-  expect(ran.text).toContain('/sq')
-  expect(ran.text).not.toContain('ctrl+x')
+  // the command says how to play in the panes; there is no command for playing
+  expect(ran.text).toContain('w a s d')
+  expect(ran.text).not.toContain('/sq ')
 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
 
@@ -64,9 +67,11 @@ test('the game pane draws a board and slides when w a s d are pressed', async ($
   // and no two controls answer to one key
   expect(new Set(seen).size).toBe(seen.length)
 
-  // nothing closes the pane: the engine draws its own mark and answers
-  // ctrl+x x, and a second way out one key from the one that switches games
-  // is how a game shut itself while its owner reached for the other
+  // nothing here closes the pane and nothing here switches game: the engine
+  // draws its own close mark and its own tabs, and both of those were keys
+  // of mine that fired when nobody meant them to
+  // nothing closes the pane; switching is a letter here because this game
+  // types nothing, and typed text in the word game, which types everything
   expect(await ui.find({ type: 'Button', key: 'close' })).toBeUndefined()
 
   // a new board holds two tiles; after a slide it still holds at least two
@@ -123,7 +128,7 @@ test('the word pane draws coloured tiles and takes a guess', { options: { mode: 
   }))
 
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
-  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  const ui = await $.ui.mount({ ...WORD_PANE, surface: 'terminal' })
 
   // six empty rows before anything is guessed, and a field to type in
   expect(await ui.find({ type: 'Input', key: 'guess' })).toBeDefined()
@@ -150,44 +155,57 @@ test('the word game binds no key, and its field takes the controls', { options: 
   on('fs.read', () => ({ value: 'parse table fence glyph probe parse table fence glyph probe' }))
 
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
-  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  const ui = await $.ui.mount({ ...WORD_PANE, surface: 'terminal' })
 
   // Here every letter is typed into the field, so a letter cannot also be a
   // control, and a digit needs shift on AZERTY. Nothing is bound.
-  for (const key of ['swap', 'length']) {
-    const found = await ui.find({ type: 'Button', key })
-    expect(found).toBeDefined()
-    expect(found?.props?.hotkey).toBeUndefined()
+  const length = await ui.find({ type: 'Button', key: 'length' })
+  expect(length).toBeDefined()
+  expect(length?.props?.hotkey).toBeUndefined()
+  for (const key of ['swap', 'close']) {
+    expect(await ui.find({ type: 'Button', key })).toBeUndefined()
   }
-  expect(await ui.find({ type: 'Button', key: 'close' })).toBeUndefined()
 
-  // the field carries the controls instead, so there is nothing to collide
+  // the field takes the word, and nothing else needs a key
   expect(await ui.find({ type: 'Input', key: 'guess' })).toBeDefined()
-  await ui.input({ key: 'guess', text: '2048' })
-  expect(await ui.find({ type: 'Text', text: /┌─/ })).toBeDefined()
+  await ui.input({ key: 'guess', text: 'vivid' })
+  expect(await ui.find({ type: 'Text', text: /guess 2 of 6/ })).toBeDefined()
   await ui.unmount()
 })
 
-test('t switches the pane between the two games', { options: { mode: '2048' } }, async ($, on) => {
-  on('command.register', () => ({ value: { command: 'sidequest' } }))
-  on('store.get', () => ({ value: 0 }))
-  on('ui.open', () => ({ value: { isPlaced: true } }))
-  on('session.start', (_, e) => ({ cwd: e.cwd }))
-  on('process.run', () => ({
-    value: { exitCode: 0, stdout: 'src/a.ts\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
-  }))
-  on('fs.read', () => ({ value: 'export function parse(x) {}' }))
-
+test('one game is up at a time, and swapping keeps the keyboard', async ($, on) => {
+  const opened: Array<Record<string, unknown>> = []
+  const closed: string[] = []
+  PLAYABLE(on, (id: string) => closed.push(id), e => opened.push(e))
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
-  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await say($, '')
 
-  expect(await ui.find({ type: 'Text', text: /┌─/ })).toBeDefined()
-  await ui.press({ key: 'swap' })
-  expect(await ui.find({ type: 'Input', key: 'guess' })).toBeDefined()
-  await ui.press({ key: 'swap' })
-  expect(await ui.find({ type: 'Text', text: /┌─/ })).toBeDefined()
+  // 2048 is what comes up, and it does not ask for the keyboard: the composer
+  // holds the command that opened it, so the request would only be refused
+  expect(opened.at(-1)?.id).toBe('sidequest-2048')
+  expect(opened.at(-1)?.focus).toBeUndefined()
 
-  await ui.unmount()
+  const board = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await board.find({ type: 'Text', text: /┌─/ })).toBeDefined()
+  // `g` is free here because this game types nothing
+  await board.press({ key: 'swap' })
+  await board.unmount()
+
+  // Swapping closes the pane you are in, and that is what hands the keys
+  // back, so the open that follows is one of the few that may ask for them and
+  // be granted. Opening an id that is already open only retitles it; it does
+  // not raise it, which is why the close comes first.
+  expect(closed).toContain('sidequest-2048')
+  expect(opened.at(-1)?.id).toBe('sidequest-word')
+  expect(opened.at(-1)?.focus).toBe(true)
+
+  const word = await $.ui.mount({ ...WORD_PANE, surface: 'terminal' })
+  expect(await word.find({ type: 'Input', key: 'guess' })).toBeDefined()
+  // and back again, typed, because every letter here belongs to the word
+  await word.input({ key: 'guess', text: '2048' })
+  expect(opened.at(-1)?.id).toBe('sidequest-2048')
+  expect(opened.at(-1)?.focus).toBe(true)
+  await word.unmount()
 })
 
 test('a project git knows nothing about is read from the folder', { options: { mode: 'codele' } }, async ($, on) => {
@@ -212,7 +230,7 @@ test('a project git knows nothing about is read from the folder', { options: { m
   on('fs.read', () => ({ value: 'export function parseTable() { const fence = glyphList() }' }))
 
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
-  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  const ui = await $.ui.mount({ ...WORD_PANE, surface: 'terminal' })
 
   // the pane has a word and takes a guess, so the folder gave up a pool
   expect(await ui.find({ type: 'Input', key: 'guess' })).toBeDefined()
@@ -222,29 +240,6 @@ test('a project git knows nothing about is read from the folder', { options: { m
   await ui.unmount()
 })
 
-test('a window too narrow for an unasked pane is said once, not silently', async ($, on) => {
-  on('command.register', () => ({ value: { command: 'sidequest' } }))
-  on('store.get', () => ({ value: 0 }))
-  on('session.start', (_, e) => ({ cwd: e.cwd }))
-  on('turn.start', (_, e) => ({ turnId: e.turnId }))
-  on('tool.call', () => ({ result: {} }))
-  let clock = 0
-  on('clock.now', () => ({ value: (clock += 30_000) }))
-  // the surface refuses the seat: the window is under 144 columns
-  on('ui.open', () => ({ value: { isPlaced: false, reason: 'the window is narrower than 144 columns' } }))
-  const said: string[] = []
-  on('ui.toast', (_, e) => { said.push(String(e.text)); return { value: undefined } })
-
-  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
-  await $.turn.start({ turnId: 'turn-1', text: 'something slow' })
-  for (let i = 0; i < 4; i++) await $.tool.call({ tool: 'Bash', command: 'ls' })
-
-  // four chances to open, one line about it
-  expect(said.length).toBe(1)
-  expect(said[0]).toContain('/sidequest')
-  // and it passes on the engine's own reason rather than guessing at one
-  expect(said[0]).toContain('144 columns')
-})
 
 test('each game fits a short inline pane and says how to play it', async ($, on) => {
   on('command.register', () => ({ value: { command: 'sidequest' } }))
@@ -267,37 +262,19 @@ test('each game fits a short inline pane and says how to play it', async ($, on)
     expect(hint).toBeDefined()
     // a click is not offered: a terminal reports none outside fullscreen
     expect(hint?.text).not.toContain('click')
-    // and unfocused, the prompt is always named as the way that always works
-    if (!focused) expect(hint?.text).toContain('/sq')
+    // and unfocused, the way to take the keyboard is named
+    if (!focused) expect(hint?.text).toContain('ctrl+x')
 
-    // the controls are drawn too, not pushed below what the pane can show
-    expect(await ui.find({ type: 'Button', key: 'swap' })).toBeDefined()
-    // and closing is the engine's own mark, never a key of ours
+    // the board and its keys are drawn, not pushed below what the pane shows
+    expect(await ui.find({ type: 'Text', text: /┌─/ })).toBeDefined()
+    expect(await ui.find({ type: 'Button', key: 'up' })).toBeDefined()
+    // and closing and switching are the engine's own marks, never keys of ours
     expect(await ui.find({ type: 'Button', key: 'close' })).toBeUndefined()
 
     await ui.unmount()
   }
 })
 
-test('the command names itself as the way to play, and never chases focus', async ($, on) => {
-  on('command.register', () => ({ value: { command: 'sidequest' } }))
-  on('store.get', () => ({ value: 0 }))
-  on('ui.open', () => ({ value: { isPlaced: true } }))
-  on('session.start', (_, e) => ({ cwd: e.cwd }))
-
-  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
-  const ran = await $.command.run(RUN)
-
-  // the pane never asks for the keyboard now, so nothing here may suggest it
-  expect(ran.text).not.toContain('ctrl+x')
-  expect(ran.text).not.toContain('Esc')
-  expect(ran.text).not.toContain('has the keyboard')
-  // and the opening line is the whole manual, because there is nowhere else
-  // a player would think to look for it
-  for (const part of ['/sq w a s d', '/sq <word>', '/sq next', '/sq close']) {
-    expect(ran.text).toContain(part)
-  }
-})
 
 test('a short pane sheds its notes before it sheds the board', async ($, on) => {
   on('command.register', () => ({ value: { command: 'sidequest' } }))
@@ -329,40 +306,6 @@ test('a short pane sheds its notes before it sheds the board', async ($, on) => 
 })
 
 
-test('either game is named outright, so neither can be stranded', async ($, on) => {
-  on('command.register', () => ({ value: { command: 'sidequest' } }))
-  on('store.get', () => ({ value: undefined }))
-  on('store.set', () => ({ value: undefined }))
-  on('ui.open', () => ({ value: { isPlaced: true } }))
-  on('session.start', (_, e) => ({ cwd: e.cwd }))
-  on('process.run', () => ({
-    value: { exitCode: 0, stdout: 'a.ts\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
-  }))
-  on('fs.read', () => ({ value: 'parse table fence glyph probe parse table fence glyph probe' }))
-
-  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
-  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-
-  // `word` and `2048` name a game rather than toggling, so asking twice for
-  // the one already showing is harmless — there is no way to end up in the
-  // game you did not want and no way back
-  for (const said of ['word', 'word']) {
-    await $.command.run({ ...RUN, args: said })
-    expect(await ui.find({ type: 'Input', key: 'guess' })).toBeDefined()
-  }
-  for (const said of ['2048', '2048']) {
-    await $.command.run({ ...RUN, args: said })
-    expect(await ui.find({ type: 'Text', text: /┌─/ })).toBeDefined()
-  }
-
-  // and `next` is the toggle, for when either will do
-  await $.command.run({ ...RUN, args: 'next' })
-  expect(await ui.find({ type: 'Input', key: 'guess' })).toBeDefined()
-  await $.command.run({ ...RUN, args: 'next' })
-  expect(await ui.find({ type: 'Text', text: /┌─/ })).toBeDefined()
-
-  await ui.unmount()
-})
 
 test('the word length is cycled from the pane and kept', async ($, on) => {
   on('command.register', () => ({ value: { command: 'sidequest' } }))
@@ -377,8 +320,9 @@ test('the word length is cycled from the pane and kept', async ($, on) => {
   on('store.set', (_, e) => { kept[String(e.key)] = e.value; return { value: undefined } })
 
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
-  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  await ui.press({ key: 'swap' })
+  // opening is what deals the first word, so the pane has something to draw
+  await $.command.run({ ...RUN, args: '' })
+  const ui = await $.ui.mount({ ...WORD_PANE, surface: 'terminal' })
 
   expect((await ui.find({ type: 'Button', key: 'length' }))?.props?.label).toContain('5')
   await ui.press({ key: 'length' })
@@ -390,10 +334,10 @@ test('the word length is cycled from the pane and kept', async ($, on) => {
 })
 
 /** Everything the command can be told, with a repository behind it. */
-const PLAYABLE = (on: any) => {
+const PLAYABLE = (on: any, note?: (id: string) => void, opened?: (e: Record<string, unknown>) => void) => {
   on('command.register', () => ({ value: { command: 'sidequest' } }))
-  on('ui.open', () => ({ value: { isPlaced: true } }))
-  on('ui.close', () => ({ value: undefined }))
+  on('ui.open', (_: unknown, e: Record<string, unknown>) => { opened?.(e); return { value: { isPlaced: true } } })
+  on('ui.close', (_: unknown, e: { id: string }) => { note?.(String(e.id)); return { value: undefined } })
   on('session.start', (_: unknown, e: { cwd: string }) => ({ cwd: e.cwd }))
   on('process.run', () => ({
     value: { exitCode: 0, stdout: 'a.ts\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
@@ -410,52 +354,86 @@ const PLAYABLE = (on: any) => {
 
 const say = ($: any, args: string) => $.command.run({ ...RUN, args })
 
-test('2048 is played from the prompt, without the keyboard ever leaving it', async ($, on) => {
+test('the command opens both games and closes both, and does nothing else', async ($, on) => {
+  const closed: string[] = []
+  PLAYABLE(on, (id: string) => closed.push(id))
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+
+  const ran = await say($, '')
+  // it says how to play, and names no command for playing, because there is
+  // none: a game you play by typing a command per move is not a game
+  expect(ran.text).toContain('ctrl+x')
+  expect(ran.text).toContain('w a s d')
+  expect(ran.text).not.toContain('/sidequest w')
+  expect(ran.text).not.toContain('/sq')
+
+  expect((await say($, 'close')).text).toContain('closed')
+  // both tabs go, not just the one in front
+  expect(closed).toContain('sidequest-2048')
+  expect(closed).toContain('sidequest-word')
+})
+
+test('a word dealt once is the same word in the pane and after a redraw', async ($, on) => {
   PLAYABLE(on)
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
   await say($, '')
 
-  for (const [arg, named] of [['a', 'left'], ['s', 'down'], ['d', 'right'], ['w', 'up']] as const) {
-    const ran = await say($, arg)
-    expect(ran.text).toContain(`Slid ${named}`)
-    expect(ran.text).toContain('Score')
-  }
-  // the AZERTY letters mean the same thing here as they do in the pane
-  expect((await say($, 'z')).text).toContain('Slid up')
-  expect((await say($, 'q')).text).toContain('Slid left')
+  const ui = await $.ui.mount({ ...WORD_PANE, surface: 'terminal' })
+  // opening deals the word, so the word pane is never found still looking
+  expect(await ui.find({ type: 'Text', text: /Finding a word/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Input', key: 'guess' })).toBeDefined()
+  await ui.unmount()
 })
 
-test('the word game is played from the prompt, and grades the guess in the reply', async ($, on) => {
-  PLAYABLE(on)
+test('no open of ours ever asks for the keyboard', async ($, on) => {
+  const opened: Array<Record<string, unknown>> = []
+  on('command.register', () => ({ value: { command: 'sidequest' } }))
+  on('store.get', () => ({ value: 0 }))
+  on('session.start', (_: unknown, e: { cwd: string }) => ({ cwd: e.cwd }))
+  on('turn.start', (_: unknown, e: { turnId: string }) => ({ turnId: e.turnId }))
+  on('tool.call', () => ({ result: {} }))
+  on('process.run', () => ({
+    value: { exitCode: 0, stdout: 'a.ts\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
+  }))
+  on('fs.read', () => ({ value: 'parse table fence glyph probe parse table fence glyph probe' }))
+  let clock = 0
+  on('clock.now', () => ({ value: (clock += 30_000) }))
+  on('ui.open', (_: unknown, e: Record<string, unknown>) => { opened.push(e); return { value: { isPlaced: true } } })
+
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  await $.command.run({ ...RUN, args: '' })
+  await $.turn.start({ turnId: 'turn-1', text: 'something slow' })
+  await $.tool.call({ tool: 'Bash', command: 'ls' })
 
-  expect((await say($, 'word')).text).toContain('word game')
-  // `vivid` shares no letter with any word in this pool, so the grading is
-  // the same whichever of the five was dealt. Guessing one of the pool's own
-  // words solves it one run in five, and a solved reply is not a graded one.
-  const ran = await say($, 'vivid')
-  // every letter comes back carrying its mark, so the reply reads on its own
-  expect(ran.text).toMatch(/[A-Z][=~·] [A-Z][=~·] [A-Z][=~·] [A-Z][=~·] [A-Z][=~·]/)
-  expect(ran.text).toContain('guess 2 of 6')
-
-  // a word of the wrong length is refused, and says how to change it
-  const wrong = await say($, 'invoice')
-  expect(wrong.text).toContain('7 letters')
+  // A focus request is granted only over an empty composer — and typing
+  // /sidequest is text in the composer. A refused one does not merely fail:
+  // measured on a real session, ctrl+x tab stops working after it, so the keys
+  // meant for the game land in the composer and an Enter sends them to the
+  // model. Asking and losing is worse than never asking.
+  expect(opened.length).toBeGreaterThan(0)
+  for (const o of opened) expect(o.focus).toBeUndefined()
 })
 
-test('switching, dealing, length and closing all answer from the prompt', async ($, on) => {
-  const kept = PLAYABLE(on)
+test('a window too narrow for an unasked pane is said once, not silently', async ($, on) => {
+  on('command.register', () => ({ value: { command: 'sidequest' } }))
+  on('store.get', () => ({ value: 0 }))
+  on('session.start', (_: unknown, e: { cwd: string }) => ({ cwd: e.cwd }))
+  on('turn.start', (_: unknown, e: { turnId: string }) => ({ turnId: e.turnId }))
+  on('tool.call', () => ({ result: {} }))
+  let clock = 0
+  on('clock.now', () => ({ value: (clock += 30_000) }))
+  // the surface refuses the seat: the window is under 144 columns
+  on('ui.open', () => ({ value: { isPlaced: false, reason: 'the window is narrower than 144 columns' } }))
+  const said: string[] = []
+  on('ui.toast', (_: unknown, e: { text: string }) => { said.push(String(e.text)); return { value: undefined } })
+
   await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  await $.turn.start({ turnId: 'turn-1', text: 'something slow' })
+  for (let i = 0; i < 4; i++) await $.tool.call({ tool: 'Bash', command: 'ls' })
 
-  expect((await say($, 'word')).text).toContain('word game')
-  expect((await say($, '2048')).text).toContain('2048')
-  expect((await say($, 'new')).text).toContain('board')
-
-  const six = await say($, '6')
-  expect(six.text).toContain('6 letters')
-  expect(kept.wanted).toBe('6')
-
-  expect((await say($, 'close')).text).toContain('closed')
-  // and a word that means nothing says what the command does understand
-  expect((await say($, 'zzz9'))?.text).toContain('does not know')
+  // four chances to open, one line about it
+  expect(said.length).toBe(1)
+  expect(said[0]).toContain('/sidequest')
+  // and it passes on the engine's own reason rather than guessing at one
+  expect(said[0]).toContain('144 columns')
 })

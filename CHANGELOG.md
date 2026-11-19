@@ -1,5 +1,59 @@
 # Changelog
 
+## 0.5.0 — 2026-11-19
+
+**The slash commands for playing are gone, and so is every key that could
+close the pane or be swallowed by a word.**
+
+```
+/sidequest          open      /sidequest close    close
+```
+
+That is the whole command surface. A game you play by typing a command per
+move is not a game.
+
+Each game is now its own pane, and one is up at a time, so the pane's title
+says which you are in:
+
+- **2048** — `w a s d` slide (`z q s d` too), `r` deals a new board, `g` goes
+  to the word game.
+- **Word** — type the word and press enter, or type `2048` to come back.
+- **Both** — `Esc` hands the keyboard back, `ctrl+x x` or the ✕ closes.
+
+Switching had to stop being an ordinary key, because in the word game every
+letter belongs to the word being spelled and every digit needs shift on an
+AZERTY board. It is now the pane itself that changes: swapping **closes the
+pane you are in, which is what hands the keys back, and the open that follows
+is then eligible for the focus it asks for** — so you carry on playing in the
+other game without touching the prompt.
+
+### What testing on a real session changed
+
+Two designs died in the harness rather than in your hands:
+
+- **Engine tabs.** Two panes draw as `│ 2048  Word │`, which looked like the
+  answer. But switching by keyboard needs the focus ring to already be on the
+  tab strip, and after a few slides it is not: the letters went into the
+  composer instead, and the Enter among them **sent them to the model**.
+- **Asking for focus on open.** The documentation says a refused focus request
+  is harmless. Measured A/B on a real session, it is not — the `ctrl+x tab`
+  chord stops working afterwards, with the same result: keys in the composer,
+  a prompt fired at Claude. No open of ours asks for focus now, and a test
+  holds that.
+
+Verified end to end on a pty: `ctrl+x tab` took the keyboard, `w a s d` played
+the board, `g` reached the word game, a guess of the right length was graded,
+typing `2048` came back, `Esc` handed the keyboard back in one press, and
+nothing reached the prompt or the model.
+
+### Also fixed
+
+- **Esc gives the keyboard back from the word game** in one press.
+- The opening line still said *"The keyboard never leaves the prompt"*, left
+  over from 0.3.0 and untrue since 0.4.0.
+- `mode` in `/config` now chooses which game comes up rather than which one
+  exists.
+
 ## 0.4.0 — 2026-11-19
 
 **You play with the keys again.** 0.3.0 threw out the hotkeys to stop the pane
