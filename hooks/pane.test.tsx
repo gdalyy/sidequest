@@ -706,3 +706,21 @@ test('every control is reachable the same way in both games', async ($, on) => {
   expect(await word.find({ type: 'Button', key: 'unmini' })).toBeDefined()
   await word.unmount()
 })
+
+// A docked pane is painted the surface's panel grey by default, which sits
+// beside the transcript looking like a different application. `transparent`
+// paints nothing, so the game sits on the terminal's own background.
+test('every open asks for no background of its own', async ($, on) => {
+  const opens: Record<string, unknown>[] = []
+  PLAYABLE(on, undefined, e => opens.push(e))
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  await say($, '')
+  expect(opens.length).toBeGreaterThan(0)
+
+  // the manual open, and the one swapping games makes
+  const word = await $.ui.mount({ ...WORD_PANE, surface: 'terminal' })
+  await word.press({ key: 'click-swap' })
+  await word.unmount()
+
+  for (const o of opens) expect(o.backgroundColor).toBe('transparent')
+})

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.3 — 2026-11-19
+
+**The pane sits on the terminal's own background, not the panel grey.**
+
+A docked pane is painted the surface's panel colour by default, which beside
+the transcript reads as a different application bolted on. Every open now asks
+for `backgroundColor: "transparent"` — *"paints nothing, so what lies behind
+the pane shows through"* — so the game sits on the same colour as the work
+beside it.
+
 ## 0.7.2 — 2026-11-19
 
 **One way to reach a control that is the same in both games.**

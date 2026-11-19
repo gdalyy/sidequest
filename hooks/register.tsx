@@ -30,6 +30,11 @@ const PANES = [PANE_BOARD, PANE_WORD] as const
 // 0.6.0. Inline, a pane is as tall as it asks for, up to what the layout
 // spares; docked it is ignored.
 const ROWS = 18
+// What the surface paints under the pane's body. `transparent` paints
+// nothing, so the terminal's own background shows through and the game sits
+// on the same colour as the transcript beside it, rather than on the panel
+// grey a docked pane is given by default.
+const PANE_BACKGROUND = 'transparent'
 
 
 const COMMAND = 'sidequest'
@@ -281,6 +286,7 @@ async function swapTo($: EngineInterface, id: string): Promise<void> {
     id,
     title: id === PANE_BOARD ? '2048' : 'Word',
     rows: ROWS,
+    backgroundColor: PANE_BACKGROUND,
     focus: true,
   }).catch(() => undefined)
 }
@@ -333,6 +339,7 @@ async function openPanes($: EngineInterface, front: string): Promise<boolean> {
     id,
     title: id === PANE_BOARD ? '2048' : 'Word',
     rows: ROWS,
+    backgroundColor: PANE_BACKGROUND,
   })
   if (!(await read($, codele))) await newWord($, await read($, wanted))
   return Boolean(opened.isPlaced)
@@ -437,7 +444,12 @@ export const register: Register = (on, options) => {
         // the keys meant for the game land in the composer and an Enter among
         // them sends them to the model. Asking and losing is worse than never
         // asking, so the keyboard is only ever taken by the person.
-        const front = await $.ui.open({ id: PANE_BOARD, title: '2048', rows: ROWS })
+        const front = await $.ui.open({
+          id: PANE_BOARD,
+          title: '2048',
+          rows: ROWS,
+          backgroundColor: PANE_BACKGROUND,
+        })
         isOpen = front.isPlaced
         if (!front.isPlaced && !hasSaidNarrow) {
           hasSaidNarrow = true
