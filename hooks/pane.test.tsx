@@ -437,3 +437,90 @@ test('a window too narrow for an unasked pane is said once, not silently', async
   // and it passes on the engine's own reason rather than guessing at one
   expect(said[0]).toContain('144 columns')
 })
+
+// The buttons the pointer reaches. A hotkey is a key taken out of the
+// terminal's mouth, and that is what used to close the game from shift+2 and
+// from the numeric keypad. A button with no hotkey cannot be hit by accident,
+// so close and switch-game are safe to offer here and only here.
+test('every control a pointer reaches is bound to no key at all', async ($, on) => {
+  const closed: string[] = []
+  const opened: Record<string, unknown>[] = []
+  PLAYABLE(on, id => closed.push(id), e => opened.push(e))
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  await say($, '')
+
+  const board = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  for (const key of ['click-swap', 'click-new', 'click-close']) {
+    const found = await board.find({ type: 'Button', key })
+    expect(found).toBeDefined()
+    expect((found as { props?: { hotkey?: string } })?.props?.hotkey).toBeUndefined()
+  }
+
+  // Close shuts both games, not just the one in front, so nothing is left
+  // behind to come back on its own.
+  closed.length = 0
+  await board.press({ key: 'click-close' })
+  expect(closed).toContain('sidequest-2048')
+  expect(closed).toContain('sidequest-word')
+  await board.unmount()
+
+  // The same row in the word game, and its switch goes the other way: this is
+  // the click that answers "there is no way back to game 1".
+  const word = await $.ui.mount({ ...WORD_PANE, surface: 'terminal' })
+  for (const key of ['click-swap', 'click-new', 'click-close', 'length']) {
+    const found = await word.find({ type: 'Button', key })
+    expect(found).toBeDefined()
+    expect((found as { props?: { hotkey?: string } })?.props?.hotkey).toBeUndefined()
+  }
+
+  closed.length = 0
+  opened.length = 0
+  await word.press({ key: 'click-swap' })
+  // swapping closes the pane you are in, which is what hands the keys back,
+  // and only then opens the other one
+  expect(closed).toContain('sidequest-word')
+  expect(opened.some(e => e.id === 'sidequest-2048')).toBe(true)
+  await word.unmount()
+})
+
+// A terminal has no widget seat, so the engine cannot minimize a pane. Rolled
+// up is the mod drawing one line, which is what the word has to mean where
+// the pane is seated above the prompt and pushing the work up the screen.
+test('the pane rolls up to one line and opens again from either game', async ($, on) => {
+  PLAYABLE(on)
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  await say($, '')
+
+  const board = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  // open, the board is drawn and minimize is offered
+  expect(await board.find({ type: 'Text', text: /┌─/ })).toBeDefined()
+  const mini = await board.find({ type: 'Button', key: 'click-mini' })
+  expect(mini).toBeDefined()
+  // this one may carry a key: 2048 types nothing, so a letter collides with
+  // nothing, and m is nowhere near the keys that slide
+  expect((mini as { props?: { hotkey?: string } })?.props?.hotkey).toBe('m')
+
+  await board.press({ key: 'click-mini' })
+  // rolled up: no board left, and one line that says the score
+  expect(await board.find({ type: 'Text', text: /┌─/ })).toBeUndefined()
+  const line = await board.find({ type: 'Button', key: 'unmini' })
+  expect(line).toBeDefined()
+  expect(String((line as { props?: { label?: string } })?.props?.label)).toContain('2048')
+  // collapsed there is no field anywhere, so m is free to open it again
+  expect((line as { props?: { hotkey?: string } })?.props?.hotkey).toBe('m')
+  await board.unmount()
+
+  // the word game is rolled up too — one state, not one per pane
+  const word = await $.ui.mount({ ...WORD_PANE, surface: 'terminal' })
+  expect(await word.find({ type: 'Input', key: 'guess' })).toBeUndefined()
+  expect(await word.find({ type: 'Button', key: 'unmini' })).toBeDefined()
+
+  await word.press({ key: 'unmini' })
+  // open again, and the field is back
+  expect(await word.find({ type: 'Input', key: 'guess' })).toBeDefined()
+  // its minimize carries no key, because every letter here is typed
+  const wordMini = await word.find({ type: 'Button', key: 'click-mini' })
+  expect(wordMini).toBeDefined()
+  expect((wordMini as { props?: { hotkey?: string } })?.props?.hotkey).toBeUndefined()
+  await word.unmount()
+})

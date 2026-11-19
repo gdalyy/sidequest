@@ -1,5 +1,68 @@
 # Changelog
 
+## 0.6.0 — 2026-11-19
+
+**Buttons, a minimize that a terminal can actually do, and a plain answer to
+"when does this thing open by itself?"**
+
+### Buttons
+
+Both games now draw a row of controls:
+
+```
+2048   [ Word game ]  [ New board ]  [ Minimize ]  [ Close ]
+Word   5 letters  [ 2048 ]  [ New word ]  [ Minimize ]  [ Close ]
+```
+
+They were missing because I had lumped *buttons* in with *hotkeys*, and
+hotkeys were the thing that burned you: a `hotkey` is a key taken out of the
+terminal's mouth, which is how `shift+2` and the numeric keypad used to close
+the game. **A button with no `hotkey` cannot be pressed by accident.** Close
+and switch-game are safe to offer as buttons precisely because they are not
+keys. I had banned the control when I only needed to ban the key.
+
+**A click only reaches them in the fullscreen layout.** Measured on a live
+session: on the main screen Claude Code never enables mouse reporting (every
+`?1000/1002/1003/1006/1016` in the stream is a disable, never an enable), so
+there the buttons draw but cannot be clicked. Every one of them still has a
+keyboard route, so nothing depends on it.
+
+### Minimize
+
+The engine cannot minimize a pane in a terminal — a `widget` is a desktop-app
+seat, and *"a surface with no widgets (the terminal, VS Code…) opens the pane
+as if this were left out"*. So this is the mod drawing one line instead of
+fourteen:
+
+```
+▸ Sidequest · 2048 · score 24   [ Open ]  [ Close ]
+```
+
+`m` rolls 2048 up and back; in the word game type `min`, or click Minimize.
+Collapsed there is no text field in either game, so `m` is free to open it
+again from both. Verified on a live session, both directions.
+
+This matters most where the pane is seated **above the prompt** and pushing
+the transcript up. That seat is a width rule, not a bug: the engine docks a
+pane beside the transcript only in fullscreen **from 110 columns**, and places
+it inline above the prompt otherwise. Widening the terminal past 110 columns
+moves it to the side — and is the same condition that makes the buttons
+clickable.
+
+### When it opens by itself
+
+After a turn has run **20 seconds**, on its next tool call. It was never
+written down. It is `Open after` in `/config`, and `0` means never open
+unasked.
+
+### Also
+
+- Switching is said first, not buried: `g: the word game · m: minimize ·
+  r: new board · Esc: the prompt`.
+- The game-over line still read `/sq new deals another board` — the last `/sq`
+  left in the code.
+- The `mode` setting still claimed `t` switches games. It has not since 0.4.0.
+
 ## 0.5.0 — 2026-11-19
 
 **The slash commands for playing are gone, and so is every key that could

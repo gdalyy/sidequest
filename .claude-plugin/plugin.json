@@ -1,7 +1,7 @@
 {
   "name": "sidequest",
   "displayName": "Sidequest",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "2048 and a Wordle built from your own project's words, in a pane beside the chat \u2014 played from the prompt, so the keyboard never has to move.",
   "author": {
     "name": "Ghaith Daly"
@@ -28,7 +28,7 @@
     "mode": {
       "title": "Game",
       "type": "string",
-      "description": "Which game the pane opens on; t switches between them at any time",
+      "description": "Which game the pane opens on; g, or the Word game button, switches at any time",
       "options": [
         "2048",
         "codele"

@@ -44,6 +44,13 @@ declare module 'claude-code' {
       codele: Shaped<Codele | null>
       /** The word length asked for: '4'…'7' or 'mixed', cycled from the pane. */
       wanted: string
+      /**
+       * Whether the pane is rolled up to its one-line form. A terminal has no
+       * widget seat, so the engine cannot minimize a pane; this is the mod
+       * drawing one line instead of fourteen, which is the same thing where
+       * the pane is seated above the prompt and pushing the transcript up.
+       */
+      isMini: boolean
     }
   }
 }

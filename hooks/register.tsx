@@ -37,6 +37,10 @@ const steps = atom({ plugin: 'sidequest', key: 'steps' } as const, 0)
 const board = atom({ plugin: 'sidequest', key: 'board' } as const, EMPTY_BOARD, { shape: 'board-1' })
 const codele = atom({ plugin: 'sidequest', key: 'codele' } as const, null, { shape: 'codele-1' })
 const wanted = atom({ plugin: 'sidequest', key: 'wanted' } as const, String(DEFAULT_LENGTH))
+// The terminal has no widget seat, so no engine call minimizes a pane. This
+// is the mod drawing one line instead of fourteen, which is what "minimize"
+// has to mean where the pane sits above the prompt and pushes the work up.
+const isMini = atom({ plugin: 'sidequest', key: 'isMini' } as const, false)
 
 // ---------------------------------------------------------------- the repository
 
@@ -198,6 +202,9 @@ async function sayWord($: EngineInterface, text: string, length: string): Promis
   // the way back to the board, typed rather than pressed: every letter here
   // belongs to the word being spelled, so no key of this pane can mean it
   if (/^(2048|board|back|game)$/.test(said)) return swapTo($, PANE_BOARD)
+  // the field is this game's only control surface, so "minimize" is a word
+  // typed into it like any other
+  if (/^(min|mini|minimize|hide)$/.test(said)) return toggleMini($)
   if (said === 'new') return newWord($, length)
   if (/^(4|5|6|7|mixed)$/.test(said)) {
     await update($, wanted, () => said)
@@ -273,6 +280,20 @@ async function swapTo($: EngineInterface, id: string): Promise<void> {
     rows: ROWS,
     focus: true,
   }).catch(() => undefined)
+}
+
+/**
+ * Shuts whichever game is up. The engine's own mark does this too; this is
+ * the same thing under a pointer, for the person who would rather click.
+ */
+/** Rolls the pane up to one line, or back down. */
+async function toggleMini($: EngineInterface): Promise<void> {
+  await update($, isMini, on => !on)
+}
+
+async function closeAll($: EngineInterface): Promise<void> {
+  isOpen = false
+  for (const id of PANES) await $.ui.close({ id }).catch(() => undefined)
 }
 
 async function openPanes($: EngineInterface, front: string): Promise<boolean> {
@@ -403,6 +424,27 @@ export const register: Register = (on, options) => {
       const top = highest(b.cells)
       const onSlide = (dir: Direction) => () => void slideBoard($, dir)
 
+      // Rolled up: one line, so the pane stops pushing the transcript up on a
+      // terminal too narrow to seat it beside one. Nothing is typed in this
+      // form, so `m` is free to open it again on either game.
+      if (await read($, isMini)) {
+        return (
+          <Box>
+            <Button
+              key="unmini"
+              hotkey="m"
+              plain
+              label={`▸ Sidequest · 2048 · score ${b.score}`}
+              onPress={() => void toggleMini($)}
+            />
+            <Text> </Text>
+            <Button key="click-open" variant="secondary" label="Open" onPress={() => void toggleMini($)} />
+            <Text> </Text>
+            <Button key="click-close" role="dismiss" label="Close" onPress={() => void closeAll($)} />
+          </Box>
+        )
+      }
+
       return (
         <Box flexDirection="column">
           <Text dimColor>
@@ -415,7 +457,7 @@ export const register: Register = (on, options) => {
               <Text>{row}</Text>
             </Box>
           ))}
-          {b.isOver && <Text color="text-danger">No moves left. /sq new deals another board.</Text>}
+          {b.isOver && <Text color="text-danger">No moves left. Press r, or click New board.</Text>}
           {/*
             Letters, never digits. A digit needs shift on an AZERTY board, so
             `shift+2` — and the numeric keypad — arrive as a plain `2`, which
@@ -452,7 +494,38 @@ export const register: Register = (on, options) => {
             thing to go when the room is short.
           */}
           <Box key="azerty" display={hasSpareRow ? 'flex' : 'none'}>
-            <Text dimColor>{e.props.isFocused ? 'r: new board · g: the word game · Esc: the prompt' : 'r: new board · g: the word game'}</Text>
+            <Text dimColor>{e.props.isFocused ? 'g: the word game · m: minimize · r: new board · Esc: the prompt' : 'g: the word game · m: minimize · r: new board'}</Text>
+          </Box>
+          {/*
+            Clickable, and bound to nothing. A hotkey is a key taken out of
+            the terminal's mouth — that is what closed the pane from shift+2
+            and from the numeric keypad. A button with no `hotkey` cannot be
+            hit by accident, and a click both presses it and hands the pane
+            the keyboard, so it is also a way in that never needs ctrl+x tab.
+
+            Whether a click arrives is the terminal's call: the surface
+            reports presses in the fullscreen layout, where this pane is
+            docked. Where it does not, the keys above still play the game.
+          */}
+          <Box key="controls">
+            <Button
+              key="click-swap"
+              variant="secondary"
+              label="Word game"
+              onPress={() => void swapTo($, PANE_WORD)}
+            />
+            <Text> </Text>
+            <Button key="click-new" variant="secondary" label="New board" onPress={() => void reset($)} />
+            <Text> </Text>
+            <Button
+              key="click-mini"
+              hotkey="m"
+              variant="secondary"
+              label="Minimize"
+              onPress={() => void toggleMini($)}
+            />
+            <Text> </Text>
+            <Button key="click-close" role="dismiss" label="Close" onPress={() => void closeAll($)} />
           </Box>
           <Text color={e.props.isFocused ? 'text-success' : undefined} dimColor={!e.props.isFocused}>
             {e.props.isFocused
@@ -488,6 +561,26 @@ export const register: Register = (on, options) => {
 
       const letters = await read($, wanted)
       const word = await read($, codele)
+
+      // The same one line. Collapsed there is no field, so no letter is being
+      // typed, and `m` can open it again here too.
+      if (await read($, isMini)) {
+        return (
+          <Box>
+            <Button
+              key="unmini"
+              hotkey="m"
+              plain
+              label={`▸ Sidequest · Word · ${word ? `${word.guesses.length}/${TRIES}` : 'dealing'}`}
+              onPress={() => void toggleMini($)}
+            />
+            <Text> </Text>
+            <Button key="click-open" variant="secondary" label="Open" onPress={() => void toggleMini($)} />
+            <Text> </Text>
+            <Button key="click-close" role="dismiss" label="Close" onPress={() => void closeAll($)} />
+          </Box>
+        )
+      }
       if (!word) {
         return (
           <Box flexDirection="column">
@@ -593,7 +686,7 @@ export const register: Register = (on, options) => {
             buttons stay because a click still works in a fullscreen terminal;
             the keyboard is never touched.
           */}
-          <Box>
+          <Box key="controls">
             <Button
               key="length"
               plain
@@ -601,10 +694,28 @@ export const register: Register = (on, options) => {
               label={letters === 'mixed' ? 'mixed length' : `${letters} letters`}
               onPress={onCycleLength}
             />
+            <Text> </Text>
+            <Button
+              key="click-swap"
+              variant="secondary"
+              label="2048"
+              onPress={() => void swapTo($, PANE_BOARD)}
+            />
+            <Text> </Text>
+            <Button
+              key="click-new"
+              variant="secondary"
+              label="New word"
+              onPress={() => void newWord($, letters)}
+            />
+            <Text> </Text>
+            <Button key="click-mini" variant="secondary" label="Minimize" onPress={() => void toggleMini($)} />
+            <Text> </Text>
+            <Button key="click-close" role="dismiss" label="Close" onPress={() => void closeAll($)} />
           </Box>
           <Text color={e.props.isFocused ? 'text-success' : undefined} dimColor={!e.props.isFocused}>
             {e.props.isFocused
-              ? 'Typing here — type 2048 and enter for the board'
+              ? 'Typing here — type 2048 for the board, min to roll this up'
               : 'ctrl+x then tab, quickly, then type the word'}
           </Text>
         </Box>

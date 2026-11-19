@@ -145,9 +145,40 @@ keyboard in the pane. Then:
 word game   type the word, then enter
             type 2048, then enter    go back
             type new / 4 / 5 / 6 / 7 / mixed
-both        Esc        give the keyboard back to the prompt
+both        m / min    roll the pane up to one line (m opens it again)
+            Esc        give the keyboard back to the prompt
             ctrl+x x   close, or click the ✕ on the frame
 ```
+
+Each game also draws a row of buttons, which carry no keys at all:
+
+```
+2048   [ Word game ]  [ New board ]  [ Minimize ]  [ Close ]
+Word   5 letters  [ 2048 ]  [ New word ]  [ Minimize ]  [ Close ]
+```
+
+A button with no `hotkey` cannot be pressed by accident, which is why close
+and switch-game are safe here and nowhere else. **A click reaches them only in
+the fullscreen layout**: on the main screen Claude Code never turns mouse
+reporting on, so there they draw but do not answer. Every one has a keyboard
+route, so nothing depends on it.
+
+### Where the pane sits, and minimizing it
+
+The engine docks a pane beside the transcript in fullscreen **from 110
+columns**, and places it inline above the prompt otherwise — where it pushes
+the transcript up. Widening the terminal past 110 columns moves it to the
+side, and is the same condition that makes the buttons clickable.
+
+A terminal has no `widget` seat, so the engine cannot minimize a pane there.
+Instead the mod draws one line:
+
+```
+▸ Sidequest · 2048 · score 24   [ Open ]  [ Close ]
+```
+
+`m` in 2048, `min` typed in the word game, or the Minimize button. Collapsed
+there is no text field in either game, so `m` opens it again from both.
 
 ### Switching game
 
@@ -181,9 +212,15 @@ Claude as a prompt. Asking and losing is worse than never asking.
 The word game binds **no key at all** — every letter there belongs to the word
 being spelled, which is why switching had to stop being a key.
 
-In `/config`: **Open after** (seconds before the pane opens unasked; `0` never
-does), **Game** (which tab opens in front) and **Word length** — what a machine
-that has never chosen one starts at.
+### When it opens by itself
+
+Once a turn has run **20 seconds**, at its next tool call — that is the whole
+rule.
+
+In `/config`: **Open after** (seconds before the pane opens unasked; `0` means
+never, so it appears only when you type `/sidequest`), **Game** (which one
+opens in front) and **Word length** — what a machine that has never chosen one
+starts at.
 
 ## Install
 
