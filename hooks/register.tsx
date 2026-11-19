@@ -301,7 +301,12 @@ async function swapTo($: EngineInterface, id: string): Promise<void> {
 function seatNote(placement: string, columns?: number, isFullscreen?: boolean): string | undefined {
   if (placement === 'dock') return undefined
   if (isFullscreen === false) {
-    return 'Above the prompt: this terminal runs on the main screen, not fullscreen. The buttons cannot be clicked there — use the keys, or m to roll this up.'
+    // Measured: on the main screen the engine never turns mouse reporting on
+    // (every ?1000/1002/1003/1006 in the stream is a disable), so no click
+    // can reach a button. Setting CLAUDE_CODE_NO_FLICKER=1 turns the
+    // fullscreen layout on, and with it both the reporting and the seat
+    // beside the transcript.
+    return 'Main screen, not fullscreen: no click can reach these buttons, and the pane cannot sit beside the transcript. Set CLAUDE_CODE_NO_FLICKER=1 in ~/.claude/settings.json under "env" to change both. The keys work either way.'
   }
   if (typeof columns === 'number' && columns < 110) {
     return `Above the prompt: the terminal is ${columns} columns. At 110 it docks beside the transcript instead, and the buttons answer a click.`
@@ -378,12 +383,18 @@ export const register: Register = (on, options) => {
       for (const id of PANES) await $.ui.close({ id })
       return { text: 'Sidequest closed. /sidequest opens it again, where you left off.' }
     }
+    // A hotkey presses only while the pane holds the keyboard — never from the
+    // composer — so once the game is rolled up there is no key that opens it
+    // again. This is the way back, and it is why the rolled-up line says so.
+    await update($, isMini, () => false)
     isOpen = await openPanes($, configured)
     return {
       text:
         'Sidequest is open. It follows the wait: the game opens by itself once a turn has run a ' +
         'while, and rolls up to one line the moment Claude is done — your board, score and word all ' +
-        'kept. Press m to open it again at any time.\n\n' +
+        'kept, and the next wait rolls it down again where you left it.\n\n' +
+        'To open it yourself while it is rolled up: ctrl+x then tab to take the keyboard, then m. ' +
+        'Or run /sidequest again. A hotkey cannot reach a pane from the prompt, so m alone will not do it.\n\n' +
         'Press ctrl+x then tab — quickly, one after the other — to take the keyboard. ' +
         'In 2048: w a s d slide (z q s d too), r deals a new board, g goes to the word game, m rolls it up. ' +
         'In the word game: type the word and press enter, type 2048 to come back, or min to roll it up. ' +
@@ -472,7 +483,7 @@ export const register: Register = (on, options) => {
               key="unmini"
               hotkey="m"
               plain
-              label={`▸ Sidequest · 2048 · score ${b.score}`}
+              label={`▸ 2048 · score ${b.score} · ctrl+x tab then m, or /sidequest`}
               onPress={() => void toggleMini($)}
             />
             <Text> </Text>
@@ -608,7 +619,7 @@ export const register: Register = (on, options) => {
               key="unmini"
               hotkey="m"
               plain
-              label={`▸ Sidequest · Word · ${word ? `${word.guesses.length}/${TRIES}` : 'dealing'}`}
+              label={`▸ Word · ${word ? `${word.guesses.length}/${TRIES}` : 'dealing'} · ctrl+x tab then m, or /sidequest`}
               onPress={() => void toggleMini($)}
             />
             <Text> </Text>

@@ -540,9 +540,12 @@ test('a pane that is not docked says why, and a docked one says nothing', async 
     props: { ...PANE.props, placement: 'inline' },
     viewport: { columns: 140, rows: 44, isFullscreen: false },
   })
-  const said = await main.find({ type: 'Text', text: /Above the prompt/ })
+  const said = await main.find({ type: 'Text', text: /Main screen/ })
   expect(said).toBeDefined()
-  expect(String(said?.text)).toContain('main screen')
+  expect(String(said?.text)).toContain('Main screen')
+  // and name the one setting that changes it, since the note is the only
+  // place a person ever learns why the buttons do nothing
+  expect(String(said?.text)).toContain('CLAUDE_CODE_NO_FLICKER=1')
   await main.unmount()
 
   // fullscreen but too narrow: name the width, and the width that would do it

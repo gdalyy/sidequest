@@ -176,6 +176,29 @@ Claude is done**:
 Rolled up, not closed: the board, the score and the word are kept, `m` opens
 it again, and the next wait rolls it down with the game where you left it.
 
+### If the buttons do nothing when you click them
+
+Your session is on the main screen, where Claude Code never turns mouse
+reporting on — no click reaches any pane. Measured both ways on live
+sessions; the one setting that changes it is:
+
+```json
+"env": { "CLAUDE_CODE_NO_FLICKER": "1" }
+```
+
+in `~/.claude/settings.json`. That turns on the fullscreen layout, which
+brings mouse reporting *and* docks the pane beside the transcript instead of
+above the prompt. The trade-off is the usual one for a fullscreen TUI: the
+terminal's own scrollback no longer holds the session.
+
+The keys work on either layout.
+
+### Opening a rolled-up game
+
+`/sidequest`, or `ctrl+x` `tab` and then `m`. Not `m` on its own: a hotkey
+presses only while the pane holds the keyboard and never from the composer,
+so `m` at the prompt just types an m.
+
 ### If Esc puts the cursor in your editor (JetBrains)
 
 Then Esc is never reaching Claude Code. PhpStorm, IntelliJ and the rest bind

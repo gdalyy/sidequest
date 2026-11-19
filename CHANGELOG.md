@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.7.1 — 2026-11-19
+
+**Why the buttons do nothing, found and named.** Measured on live sessions,
+both directions:
+
+```
+default                       alt-screen: none   mouse: disabled only
+CLAUDE_CODE_NO_FLICKER=1      alt-screen: on     mouse: 1000h 1002h 1003h 1006h
+```
+
+On the main screen the engine never turns mouse reporting on, so no click can
+reach a button there, whatever the pane draws. One setting changes it, and
+the same setting is what lets the pane sit beside the transcript instead of
+above the prompt:
+
+```json
+"env": { "CLAUDE_CODE_NO_FLICKER": "1" }
+```
+
+in `~/.claude/settings.json`. The pane now says this itself rather than
+reporting the symptom.
+
+**`m` never could open a rolled-up game**, and 0.7.0 said it could. A hotkey
+presses only while the pane holds the keyboard — *never the composer* — so
+after an automatic roll-up there is no key that reaches it, and `m` just
+typed an m into the prompt. `/sidequest` now opens it again, `ctrl+x tab`
+then `m` does too, and both the rolled-up line and the command's answer say
+so instead of the thing that was not true.
+
 ## 0.7.0 — 2026-11-19
 
 **The game follows the wait.** A turn starting rolls the board down; the
