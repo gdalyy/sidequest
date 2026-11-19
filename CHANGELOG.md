@@ -1,5 +1,54 @@
 # Changelog
 
+## 0.8.0 — 2026-11-19
+
+**The game can now run beside Claude Code instead of inside it.**
+
+Every problem this plugin has had in a JetBrains terminal came from the same
+place: a pane is Claude Code's, and so are the rules about it. It docks beside
+the transcript only in the fullscreen layout; a click is reported only there;
+a hotkey presses only while the pane holds the keyboard; and Esc belonged to
+the IDE before it ever reached the engine. Worst of all, the sidebar and the
+terminal's own scrollback are one switch, so wanting both was not a
+preference that could be satisfied.
+
+So the game no longer has to be a pane. `bin/sidequest` is the same two games
+as a program of its own, for the other half of a terminal split:
+
+```
+/sidequest split      prints the exact command for this machine
+```
+
+In its own terminal it owns its keys and its mouse, and the whole fight ends:
+
+- **Tab** switches game, in both games — not a letter, so the word game's
+  typing never swallows it, and no engine wants it first.
+- **Clicks work**, because it turns on its own mouse reporting (`?1000h`,
+  `?1006h`). Claude Code enables neither on the main screen, which is the
+  whole reason the pane's buttons could not be clicked.
+- **Esc is Esc**, `ctrl+x tab` is not needed, and the arrows slide.
+- **It takes no row from the transcript**, and deliberately does not use the
+  alternate screen, so the scrollback of the split it runs in is untouched.
+
+It still follows the wait: the plugin writes the session's state to
+`~/.claude/sidequest/<project>.json` and the game's header reads it — *Claude
+is working · 7 steps · 26s*, then *Claude is done*. The board, the word and
+the best score are kept across runs.
+
+Both games' rules are imported from the very modules the pane uses, so there
+is one 2048 and one Codele here, not two that drift.
+
+### Verified in a pty, not asserted
+
+Fresh start, click on `[ Word game ]` at its drawn cell → the word game.
+`Tab` there and back. `z q s d` slid an AZERTY board to 12. `crash` typed and
+graded `in: a r / out: c h s`. Header read a planted status file. Mouse
+reporting on, alternate screen off.
+
+Two things the capture caught that I had written wrongly: the footer said
+`q quit` where `q` is the AZERTY slide left, and `n new word` where `n` is a
+letter you are spelling with.
+
 ## 0.7.3 — 2026-11-19
 
 **The pane sits on the terminal's own background, not the panel grey.**

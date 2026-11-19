@@ -163,6 +163,46 @@ the fullscreen layout**: on the main screen Claude Code never turns mouse
 reporting on, so there they draw but do not answer. Every one has a keyboard
 route, so nothing depends on it.
 
+## Playing it beside Claude Code, in a split
+
+The pane lives inside Claude Code and therefore inside its layout rules: a
+pane docks beside the transcript **only** in the fullscreen layout, a click is
+reported **only** there, a hotkey presses **only** while the pane holds the
+keyboard, and a key the IDE binds never arrives at all. The sidebar and the
+terminal's scrollback are the same switch, so you cannot have both.
+
+Unless the game stops being a pane. Split your terminal — in PhpStorm,
+right-click the terminal tab and choose **Split Right** — and run:
+
+```
+/sidequest split          prints the exact command for this machine
+```
+
+Claude Code on one side with all its scrollback, the game on the other as a
+real sidebar that costs the transcript nothing.
+
+In its own terminal the game owns its keys, so everything that fought you in
+the pane simply does not apply:
+
+```
+both      Tab          switch game          ctrl+c   quit
+2048      w a s d      slide (z q s d, and the arrows)
+          n            a new board
+word      type it, enter to guess, backspace to delete
+          ctrl+n       a new word
+anywhere  click a button — it turns on its own mouse reporting
+```
+
+No `ctrl+x tab`. Esc is Esc. It never takes a row from the transcript, and it
+does not need Claude Code to be in fullscreen for any of it.
+
+It still follows the wait: the plugin writes what the session is doing to
+`~/.claude/sidequest/<project>.json`, and the game's header reads it —
+*Claude is working · 7 steps · 26s*, then *Claude is done*.
+
+Both games' rules come from the same modules the pane uses, so there is one
+2048 and one Codele in this repository, not two that drift.
+
 ### It follows the wait
 
 The game opens by itself once a turn has run **20 seconds** (`Open after` in

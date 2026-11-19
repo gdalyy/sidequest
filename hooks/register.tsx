@@ -320,6 +320,53 @@ function seatNote(placement: string, columns?: number, isFullscreen?: boolean): 
   return 'Above the prompt rather than beside the transcript. m rolls this up to one line.'
 }
 
+/** The home directory, asked for once: where the status file goes. */
+let home: string | undefined
+
+/** When the running turn began, so the game can count the wait up. */
+let startedAt = 0
+
+/**
+ * Tells the standalone game, running in a terminal split of its own, what
+ * this session is doing. One file per working directory, so two projects open
+ * at once never describe each other, and none of it lands in the repository.
+ *
+ * Stamped with the time, so a reader can tell a live session from one that
+ * was killed without ever getting to say "done".
+ */
+async function publishStatus($: EngineInterface, working: boolean, count: number): Promise<void> {
+  if (!root) return
+  if (home === undefined) home = (await $.env.get('HOME').catch(() => undefined)) ?? ''
+  if (!home) return
+  const slug = root.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(-120)
+  const at = await $.clock.now()
+  await $.fs
+    .write(
+      `${home}/.claude/sidequest/${slug}.json`,
+      JSON.stringify({ isWorking: working, steps: count, startedAt, updatedAt: at, cwd: root }),
+    )
+    .catch(() => undefined)
+}
+
+/**
+ * Where the standalone game is on this machine, for the line a person pastes
+ * into the other half of a terminal split. Checked rather than assumed: a
+ * plugin is not told its own folder, so this tries where a marketplace
+ * install puts it and says nothing it cannot stand behind.
+ */
+async function splitCommand($: EngineInterface): Promise<string | undefined> {
+  if (home === undefined) home = (await $.env.get('HOME').catch(() => undefined)) ?? ''
+  if (!home) return undefined
+  for (const path of [
+    `${home}/.claude/plugins/cache/sidequest/sidequest/bin/sidequest`,
+    `${home}/.claude/plugins/store/sidequest/bin/sidequest`,
+  ]) {
+    const there = await $.fs.exists(path).catch(() => false)
+    if (there) return path
+  }
+  return undefined
+}
+
 /** Rolls the pane up to one line, or back down. */
 async function toggleMini($: EngineInterface): Promise<void> {
   await update($, isMini, on => !on)
@@ -350,7 +397,6 @@ export const register: Register = (on, options) => {
   const configuredLength = String(options.word_length ?? String(DEFAULT_LENGTH))
   const after = Number(options.after_seconds ?? 20)
 
-  let startedAt = 0
   // an unasked pane is seated only from 144 columns, and 110 once the person
   // has asked for it once; below that it waits undrawn, which looks from the
   // outside exactly like a plugin that does nothing. Say so, once.
@@ -394,6 +440,19 @@ export const register: Register = (on, options) => {
     // composer — so once the game is rolled up there is no key that opens it
     // again. This is the way back, and it is why the rolled-up line says so.
     await update($, isMini, () => false)
+    if (/^(split|standalone|beside)$/.test(e.args.trim().toLowerCase())) {
+      const where = await splitCommand($)
+      return {
+        text: where
+          ? 'Split your terminal (right-click the terminal tab, Split Right) and run this in the other half:\n\n' +
+            `    ${where}\n\n` +
+            'It is a game of its own in a terminal of its own, so it needs no ctrl+x tab, Esc is Esc, its buttons ' +
+            'answer the mouse, and it takes no room from this transcript. It reads what this session is doing, ' +
+            'so it still says whether Claude is working.'
+          : 'The standalone game ships in this plugin under bin/sidequest. Run it in the other half of a ' +
+            'terminal split, from the folder you are working in.',
+      }
+    }
     isOpen = await openPanes($, configured)
     return {
       text:
@@ -422,12 +481,14 @@ export const register: Register = (on, options) => {
     await update($, steps, () => 0)
     await update($, isWorking, () => true)
     await update($, isMini, () => false)
+    await publishStatus($, true, 0)
     return next(e)
   })
 
   on('turn.complete', async ($, e, next) => {
     await update($, isWorking, () => false)
     await update($, isMini, () => true)
+    await publishStatus($, false, await read($, steps))
     return next(e)
   })
 
@@ -435,6 +496,7 @@ export const register: Register = (on, options) => {
   // long one opens the pane without a timer outliving its dispatch.
   on('tool.call', async ($, e, next) => {
     await update($, steps, n => n + 1)
+    await publishStatus($, true, await read($, steps))
     if (after > 0 && !isOpen && startedAt > 0) {
       const seconds = ((await $.clock.now()) - startedAt) / 1000
       if (seconds >= after) {

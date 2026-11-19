@@ -724,3 +724,34 @@ test('every open asks for no background of its own', async ($, on) => {
 
   for (const o of opens) expect(o.backgroundColor).toBe('transparent')
 })
+
+// The standalone game runs beside the session, not inside it. The command
+// that names it must only ever name a path that is really there.
+test('/sidequest split names the standalone, or says nothing it cannot stand behind', async ($, on) => {
+  PLAYABLE(on)
+  on('env.get', (_: unknown, e: { name: string }) => ({ value: e.name === 'HOME' ? '/home/p' : undefined }))
+  let asked: string[] = []
+  on('fs.exists', (_: unknown, e: { path: string }) => {
+    asked.push(String(e.path))
+    return { value: String(e.path).endsWith('/cache/sidequest/sidequest/bin/sidequest') }
+  })
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+
+  const found = await say($, 'split')
+  expect(found.text).toContain('/home/p/.claude/plugins/cache/sidequest/sidequest/bin/sidequest')
+  expect(found.text).toContain('Split Right')
+  expect(asked.length).toBeGreaterThan(0)
+  // it opened no pane: this command only tells you how to run the other thing
+  expect(found.text).not.toContain('ctrl+x then tab')
+})
+
+test('/sidequest split invents no path when there is none', async ($, on) => {
+  PLAYABLE(on)
+  on('env.get', () => ({ value: '/home/p' }))
+  on('fs.exists', () => ({ value: false }))
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+
+  const none = await say($, 'split')
+  expect(none.text).not.toContain('/home/p')
+  expect(none.text).toContain('bin/sidequest')
+})

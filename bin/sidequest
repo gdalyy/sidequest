@@ -1,0 +1,7 @@
+#!/bin/sh
+# Sidequest, standalone. Run it in a terminal split beside Claude Code.
+#
+# --experimental-strip-types lets the game import the very modules the Claude
+# Code pane uses for its rules, so there is one 2048 and one Codele here.
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec node --experimental-strip-types --no-warnings "$here/sidequest.mjs" "$@"
