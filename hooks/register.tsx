@@ -23,10 +23,13 @@ import type { Board, Direction, Grade, WordSource } from '../types'
 const PANE_BOARD = 'sidequest-2048'
 const PANE_WORD = 'sidequest-word'
 const PANES = [PANE_BOARD, PANE_WORD] as const
-// What 2048 needs whole: a header, nine rows of board, two rows of keys and
-// the line saying how to reach the pane. Inline, a pane is as tall as it asks
-// for, up to what the layout spares; docked it is ignored.
-const ROWS = 14
+// What 2048 needs whole: a header, nine rows of board, the button row, two
+// rows of keys, the status line and the seat note. Asking for fewer rows than
+// the tree draws does not scroll it — the engine stops at the last row and
+// the rest is simply not there, which is how the buttons went missing in
+// 0.6.0. Inline, a pane is as tall as it asks for, up to what the layout
+// spares; docked it is ignored.
+const ROWS = 18
 
 
 const COMMAND = 'sidequest'
@@ -378,23 +381,35 @@ export const register: Register = (on, options) => {
     isOpen = await openPanes($, configured)
     return {
       text:
-        'Sidequest is open. Press ctrl+x then tab — quickly, one after the other — to play. ' +
-        'In 2048: w a s d slide (z q s d too), r deals a new board, g goes to the word game. ' +
-        'In the word game: type the word and press enter, or type 2048 to come back. Esc returns the prompt.',
+        'Sidequest is open. It follows the wait: the game opens by itself once a turn has run a ' +
+        'while, and rolls up to one line the moment Claude is done — your board, score and word all ' +
+        'kept. Press m to open it again at any time.\n\n' +
+        'Press ctrl+x then tab — quickly, one after the other — to take the keyboard. ' +
+        'In 2048: w a s d slide (z q s d too), r deals a new board, g goes to the word game, m rolls it up. ' +
+        'In the word game: type the word and press enter, type 2048 to come back, or min to roll it up. ' +
+        'Esc returns the prompt — and if Esc only moves your cursor into the editor, that is your IDE ' +
+        'taking the key first: Settings, Tools, Terminal, turn off "Move focus to the editor with Escape".',
     }
   }).catch(($, e, next) => ({
     text: `sidequest could not open: ${next.error.message ?? 'unknown error'}`,
   }))
 
+  // The game follows the wait. A turn starting rolls it back down — there is
+  // something to play through now — and a turn ending rolls it up, because
+  // the thing it was filling is over and the screen belongs to the answer
+  // again. The pane is never closed by either: a rolled-up game keeps its
+  // board, its score and its word, and `m` has it back in one key.
   on('turn.start', async ($, e, next) => {
     startedAt = await $.clock.now()
     await update($, steps, () => 0)
     await update($, isWorking, () => true)
+    await update($, isMini, () => false)
     return next(e)
   })
 
   on('turn.complete', async ($, e, next) => {
     await update($, isWorking, () => false)
+    await update($, isMini, () => true)
     return next(e)
   })
 
@@ -482,55 +497,20 @@ export const register: Register = (on, options) => {
           ))}
           {b.isOver && <Text color="text-danger">No moves left. Press r, or click New board.</Text>}
           {/*
-            Letters, never digits. A digit needs shift on an AZERTY board, so
-            `shift+2` — and the numeric keypad — arrive as a plain `2`, which
-            is a key nobody meant to press. A letter is the same key on every
-            layout, and nothing is typed in this game, so none of them collide.
+            The buttons come first, directly under the board, because they are
+            the only controls a pointer can reach and because anything below
+            the pane's last row is not drawn at all. That is how they went
+            missing: the tree was longer than the rows the pane asked for, and
+            the engine simply stopped drawing. Nothing here may be ordered by
+            how interesting it is; it is ordered by what must survive a short
+            pane, most important first.
 
-            And nothing here closes the pane. The engine already draws a close
-            mark on the frame and answers ctrl+x x; a second way in, one
-            keystroke from the one that switches games, was the whole bug.
+            None of them carries a key except Minimize. A hotkey is a key
+            taken out of the terminal's mouth — that is what closed the pane
+            from shift+2 and from the numeric keypad — and a button with no
+            hotkey cannot be pressed by accident. `m` is safe here only
+            because this game types nothing.
           */}
-          <Box>
-            <Button key="up" hotkey="w" plain label="up" onPress={onSlide('up')} />
-            <Text> </Text>
-            <Button key="left" hotkey="a" plain label="left" onPress={onSlide('left')} />
-            <Text> </Text>
-            <Button key="down" hotkey="s" plain label="down" onPress={onSlide('down')} />
-            <Text> </Text>
-            <Button key="right" hotkey="d" plain label="right" onPress={onSlide('right')} />
-            <Text> </Text>
-            <Button key="new" hotkey="r" plain dimColor label="new" onPress={() => void reset($)} />
-            <Text> </Text>
-            <Button key="swap" hotkey="g" plain dimColor label="word game" onPress={() => void swapTo($, PANE_WORD)} />
-          </Box>
-          {/* the same four keys under the same fingers on an AZERTY board */}
-          <Box>
-            <Button key="up-az" hotkey="z" plain dimColor label="azerty z" onPress={onSlide('up')} />
-            <Text> </Text>
-            <Button key="left-az" hotkey="q" plain dimColor label="q" onPress={onSlide('left')} />
-          </Box>
-          {/*
-            W-A-S-D is a shape on a QWERTY board, not a set of letters: under
-            the same four fingers an AZERTY board reads Z-Q-S-D. The command
-            takes both spellings, so this row only says so, and is the first
-            thing to go when the room is short.
-          */}
-          <Box key="azerty" display={hasSpareRow ? 'flex' : 'none'}>
-            <Text dimColor>{e.props.isFocused ? 'g: the word game · m: minimize · r: new board · Esc: the prompt' : 'g: the word game · m: minimize · r: new board'}</Text>
-          </Box>
-          {/*
-            Clickable, and bound to nothing. A hotkey is a key taken out of
-            the terminal's mouth — that is what closed the pane from shift+2
-            and from the numeric keypad. A button with no `hotkey` cannot be
-            hit by accident, and a click both presses it and hands the pane
-            the keyboard, so it is also a way in that never needs ctrl+x tab.
-
-            Whether a click arrives is the terminal's call: the surface
-            reports presses in the fullscreen layout, where this pane is
-            docked. Where it does not, the keys above still play the game.
-          */}
-          {seat && <Text dimColor>{seat}</Text>}
           <Box key="controls">
             <Button
               key="click-swap"
@@ -551,11 +531,41 @@ export const register: Register = (on, options) => {
             <Text> </Text>
             <Button key="click-close" role="dismiss" label="Close" onPress={() => void closeAll($)} />
           </Box>
+          {/*
+            Letters, never digits. A digit needs shift on an AZERTY board, so
+            `shift+2` — and the numeric keypad — arrive as a plain `2`, which
+            is a key nobody meant to press. A letter is the same key on every
+            layout, and nothing is typed in this game, so none of them collide.
+          */}
+          <Box>
+            <Button key="up" hotkey="w" plain label="up" onPress={onSlide('up')} />
+            <Text> </Text>
+            <Button key="left" hotkey="a" plain label="left" onPress={onSlide('left')} />
+            <Text> </Text>
+            <Button key="down" hotkey="s" plain label="down" onPress={onSlide('down')} />
+            <Text> </Text>
+            <Button key="right" hotkey="d" plain label="right" onPress={onSlide('right')} />
+            <Text> </Text>
+            <Button key="new" hotkey="r" plain dimColor label="new" onPress={() => void reset($)} />
+            <Text> </Text>
+            <Button key="swap" hotkey="g" plain dimColor label="word game" onPress={() => void swapTo($, PANE_WORD)} />
+          </Box>
+          {/*
+            W-A-S-D is a shape on a QWERTY board, not a set of letters: under
+            the same four fingers an AZERTY board reads Z-Q-S-D. The first
+            thing to go when the room is short.
+          */}
+          <Box key="azerty" display={hasSpareRow ? 'flex' : 'none'}>
+            <Button key="up-az" hotkey="z" plain dimColor label="azerty z" onPress={onSlide('up')} />
+            <Text> </Text>
+            <Button key="left-az" hotkey="q" plain dimColor label="q" onPress={onSlide('left')} />
+          </Box>
           <Text color={e.props.isFocused ? 'text-success' : undefined} dimColor={!e.props.isFocused}>
             {e.props.isFocused
-              ? 'Playing — w a s d slide (z q s d too)'
+              ? 'Playing — w a s d slide · m minimize · g word game'
               : 'ctrl+x then tab, quickly, then w a s d'}
           </Text>
+          {seat && hasSpareRow && <Text dimColor>{seat}</Text>}
         </Box>
       )
   })
@@ -713,7 +723,6 @@ export const register: Register = (on, options) => {
             buttons stay because a click still works in a fullscreen terminal;
             the keyboard is never touched.
           */}
-          {seat && <Text dimColor>{seat}</Text>}
           <Box key="controls">
             <Button
               key="length"
@@ -741,6 +750,7 @@ export const register: Register = (on, options) => {
             <Text> </Text>
             <Button key="click-close" role="dismiss" label="Close" onPress={() => void closeAll($)} />
           </Box>
+          {seat && hasSpareRow && <Text dimColor>{seat}</Text>}
           <Text color={e.props.isFocused ? 'text-success' : undefined} dimColor={!e.props.isFocused}>
             {e.props.isFocused
               ? 'Typing here — type 2048 for the board, min to roll this up'

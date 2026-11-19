@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.7.0 — 2026-11-19
+
+**The game follows the wait.** A turn starting rolls the board down; the
+moment Claude is done it rolls up to one line, by itself:
+
+```
+▸ Sidequest · 2048 · score 24   [ Open ]  [ Close ]
+```
+
+Rolled up, never closed — the board, the score and the word are all still
+there, and `m` has them back in one key. The next wait rolls it down again
+with the game exactly as you left it. `/sidequest` now says so in its answer,
+along with the Esc note below.
+
+### The buttons were drawn and never painted
+
+0.6.0 put a row of buttons in both games and a live terminal test showed them.
+0.6.1 then added the seat note — **one more row** — and shipped on unit tests
+alone. That row pushed the buttons past the pane's fourteenth, and a pane does
+not scroll a tree taller than the rows it asked for: the engine draws to the
+last row and the rest is not there. The buttons existed in the tree the whole
+time, which is all the tests were ever asking.
+
+Fixed, and the gap with it:
+
+- The buttons are drawn **directly under the board**. Everything below is
+  ordered by what must survive a short pane, and the seat note is cut first.
+- The pane asks for 18 rows, not 14.
+- **Two guards count the rows the tree draws** against the height the mod
+  actually asks for, read from its own `ui.open` rather than copied into the
+  test — the first version of this test kept its own copy of the number and
+  could not catch the number changing, which is exactly how this got out.
+  Both were checked by regressing the code on purpose: both fail, then pass.
+- Verified painted in a real terminal, not just present in a tree.
+
 ## 0.6.1 — 2026-11-19
 
 **The pane now says why it is where it is**, instead of leaving two invisible

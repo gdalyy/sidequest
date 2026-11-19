@@ -163,6 +163,19 @@ the fullscreen layout**: on the main screen Claude Code never turns mouse
 reporting on, so there they draw but do not answer. Every one has a keyboard
 route, so nothing depends on it.
 
+### It follows the wait
+
+The game opens by itself once a turn has run **20 seconds** (`Open after` in
+`/config`; `0` never opens it unasked), and **rolls up to one line the moment
+Claude is done**:
+
+```
+▸ Sidequest · 2048 · score 24   [ Open ]  [ Close ]
+```
+
+Rolled up, not closed: the board, the score and the word are kept, `m` opens
+it again, and the next wait rolls it down with the game where you left it.
+
 ### If Esc puts the cursor in your editor (JetBrains)
 
 Then Esc is never reaching Claude Code. PhpStorm, IntelliJ and the rest bind

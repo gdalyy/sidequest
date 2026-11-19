@@ -566,3 +566,114 @@ test('a pane that is not docked says why, and a docked one says nothing', async 
   expect(await docked.find({ type: 'Text', text: /Above the prompt/ })).toBeUndefined()
   await docked.unmount()
 })
+
+// The test that was missing in 0.6.0, and would have caught the buttons
+// vanishing in 0.6.1.
+//
+// A pane does not scroll a tree that is taller than the rows it asked for:
+// the engine draws down to the last row and the rest is simply not there.
+// Every other test here asks whether an element is in the tree, which stays
+// true of a row nobody can see. This one counts the rows.
+const rowsOf = async (ui: any) => {
+  const root = await ui.find({ type: 'Box' })
+  expect(root).toBeDefined()
+  return (root as { children?: unknown[] }).children?.length ?? 0
+}
+
+test('neither game draws more rows than its pane asked for', async ($, on) => {
+  // the height is read from the open the mod actually makes, not written
+  // down here: a test that keeps its own copy of the number cannot catch the
+  // number changing, which is exactly how this got out
+  const opens: Record<string, unknown>[] = []
+  PLAYABLE(on, undefined, e => opens.push(e))
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  await say($, '')
+
+  const ROWS = Number(opens.find(o => typeof o.rows === 'number')?.rows)
+  expect(ROWS).toBeGreaterThan(0)
+
+  // the worst case: not docked, so the seat note is drawn too
+  const board = await $.ui.mount({
+    ...PANE,
+    surface: 'terminal',
+    props: { ...PANE.props, placement: 'inline' },
+    viewport: { columns: 120, rows: 44, isFullscreen: false },
+  })
+  expect(await rowsOf(board)).toBeLessThanOrEqual(ROWS)
+  // and the row that matters is in the tree, not past its end
+  expect(await board.find({ type: 'Button', key: 'click-close' })).toBeDefined()
+  await board.unmount()
+
+  const word = await $.ui.mount({
+    ...WORD_PANE,
+    surface: 'terminal',
+    props: { ...WORD_PANE.props, placement: 'inline' },
+    viewport: { columns: 120, rows: 44, isFullscreen: false },
+  })
+  expect(await rowsOf(word)).toBeLessThanOrEqual(ROWS)
+  expect(await word.find({ type: 'Button', key: 'click-close' })).toBeDefined()
+  await word.unmount()
+})
+
+// And the ordering that keeps it true when the room is short: the controls
+// survive, the commentary goes.
+test('a short pane keeps the buttons and sheds the notes', async ($, on) => {
+  const opens: Record<string, unknown>[] = []
+  PLAYABLE(on, undefined, e => opens.push(e))
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  await say($, '')
+  const ROWS = Number(opens.find(o => typeof o.rows === 'number')?.rows)
+
+  const short = await $.ui.mount({
+    ...PANE,
+    surface: 'terminal',
+    props: { ...PANE.props, placement: 'inline', scroll: { offset: 0, bodyRows: 12 } },
+    viewport: { columns: 120, rows: 20, isFullscreen: false },
+  })
+  // the buttons are still drawn
+  for (const key of ['click-swap', 'click-new', 'click-mini', 'click-close']) {
+    expect(await short.find({ type: 'Button', key })).toBeDefined()
+  }
+  // the seat note is the first thing to go
+  expect(await short.find({ type: 'Text', text: /Above the prompt/ })).toBeUndefined()
+  expect(await rowsOf(short)).toBeLessThanOrEqual(ROWS)
+  await short.unmount()
+})
+
+// The game follows the wait: down while Claude works, up the moment it is
+// done. Rolled up, not closed — a wait that comes back finds the same board.
+test('the game rolls down while Claude works and up when it is done', async ($, on) => {
+  PLAYABLE(on)
+  on('turn.start', (_: unknown, e: { turnId: string }) => ({ turnId: e.turnId }))
+  on('turn.complete', () => ({ text: 'done' }))
+  let clock = 1_000
+  on('clock.now', () => ({ value: (clock += 1000) }))
+
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  await say($, '')
+
+  // a turn starts: the board is drawn whole
+  await $.turn.start({ turnId: 'turn-1', text: 'do a long thing' })
+  const working = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await working.find({ type: 'Text', text: /┌─/ })).toBeDefined()
+  expect(await working.find({ type: 'Button', key: 'unmini' })).toBeUndefined()
+  // and a slide is played, so there is something worth keeping
+  await working.press({ key: 'left' })
+  await working.unmount()
+
+  // the turn ends: one line, by itself, nobody having pressed anything
+  await $.turn.complete({ turnId: 'turn-1', answer: 'done', durationMs: 4000, isAborted: false, reason: 'answer' })
+  const done = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await done.find({ type: 'Text', text: /┌─/ })).toBeUndefined()
+  const line = await done.find({ type: 'Button', key: 'unmini' })
+  expect(line).toBeDefined()
+  // rolled up, never closed: the score is still on the line
+  expect(String((line as { props?: { label?: string } })?.props?.label)).toContain('2048')
+  await done.unmount()
+
+  // the next wait rolls it back down, with the same board still there
+  await $.turn.start({ turnId: 'turn-2', text: 'another' })
+  const again = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await again.find({ type: 'Text', text: /┌─/ })).toBeDefined()
+  await again.unmount()
+})
