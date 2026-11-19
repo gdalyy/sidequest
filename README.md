@@ -193,6 +193,19 @@ terminal's own scrollback no longer holds the session.
 
 The keys work on either layout.
 
+### The one control that works everywhere
+
+**Tab** walks the focus ring onto a button, **Enter** presses it. That is the
+same in both games, needs no mouse and no layout, and reaches every control.
+
+Hotkeys are the shortcut where they can exist: `w a s d`, `r`, `g`, `m` in
+2048. They cannot exist in the word game, because its field holds the ring and
+every letter belongs to the word being spelled — type `m`, `min`, `2048` or
+`new` there instead, or Tab to the buttons.
+
+Arrow keys cannot be bound at all: `hotkey` takes one digit or one lowercase
+letter, and in a focused pane the arrows are the engine's own scroll.
+
 ### Opening a rolled-up game
 
 `/sidequest`, or `ctrl+x` `tab` and then `m`. Not `m` on its own: a hotkey

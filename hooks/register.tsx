@@ -207,7 +207,7 @@ async function sayWord($: EngineInterface, text: string, length: string): Promis
   if (/^(2048|board|back|game)$/.test(said)) return swapTo($, PANE_BOARD)
   // the field is this game's only control surface, so "minimize" is a word
   // typed into it like any other
-  if (/^(min|mini|minimize|hide)$/.test(said)) return toggleMini($)
+  if (/^(m|min|mini|minimize|hide)$/.test(said)) return toggleMini($)
   if (said === 'new') return newWord($, length)
   if (/^(4|5|6|7|mixed)$/.test(said)) {
     await update($, wanted, () => said)
@@ -573,7 +573,7 @@ export const register: Register = (on, options) => {
           </Box>
           <Text color={e.props.isFocused ? 'text-success' : undefined} dimColor={!e.props.isFocused}>
             {e.props.isFocused
-              ? 'Playing — w a s d slide · m minimize · g word game'
+              ? 'Playing — w a s d slide · m minimize · g word game · Tab+Enter for the buttons'
               : 'ctrl+x then tab, quickly, then w a s d'}
           </Text>
           {seat && hasSpareRow && <Text dimColor>{seat}</Text>}
@@ -764,7 +764,7 @@ export const register: Register = (on, options) => {
           {seat && hasSpareRow && <Text dimColor>{seat}</Text>}
           <Text color={e.props.isFocused ? 'text-success' : undefined} dimColor={!e.props.isFocused}>
             {e.props.isFocused
-              ? 'Typing here — type 2048 for the board, min to roll this up'
+              ? 'Typing here — or Tab to the buttons and Enter. Type 2048 for the board, m to roll up'
               : 'ctrl+x then tab, quickly, then type the word'}
           </Text>
         </Box>

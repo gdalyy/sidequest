@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.7.2 — 2026-11-19
+
+**One way to reach a control that is the same in both games.**
+
+A letter cannot be a control in a pane that types: the word game's field holds
+the focus ring, so `m` went into the word being spelled rather than pressing
+Minimize. That is the same constraint that forced switching to be typed
+(`2048`), and no key of mine can get around it.
+
+What works identically in both games is the engine's own ring: **Tab walks to
+a button, Enter presses it.** Every control in both panes is a keyed Button so
+that ring reaches all of them, and both games now say so on their status line.
+
+The word field also takes `m` on its own, beside `min`.
+
+### Why not arrow keys for switching
+
+`hotkey` takes *"one digit or one lowercase letter … anything else is
+refused"*, and in a focused pane the arrows already belong to the engine —
+*"Tab walks its elements, a Button's hotkey presses it, the arrows scroll."*
+They never reach a mod.
+
 ## 0.7.1 — 2026-11-19
 
 **Why the buttons do nothing, found and named.** Measured on live sessions,

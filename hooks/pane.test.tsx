@@ -680,3 +680,29 @@ test('the game rolls down while Claude works and up when it is done', async ($, 
   expect(await again.find({ type: 'Text', text: /┌─/ })).toBeDefined()
   await again.unmount()
 })
+
+// One control surface that is the same in both games. A letter cannot be a
+// control in a pane that types — the field takes it — so the thing that works
+// identically in both is the engine's own focus ring: Tab onto a button,
+// Enter to press. Every control is a keyed Button in both panes so that ring
+// can reach it, and the word game takes `m` typed as well.
+test('every control is reachable the same way in both games', async ($, on) => {
+  PLAYABLE(on)
+  await $.session.start({ cwd: '/repo', surface: 'terminal', isInteractive: true })
+  await say($, '')
+
+  const SHARED = ['click-swap', 'click-new', 'click-mini', 'click-close']
+
+  const board = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  for (const key of SHARED) expect(await board.find({ type: 'Button', key })).toBeDefined()
+  await board.unmount()
+
+  const word = await $.ui.mount({ ...WORD_PANE, surface: 'terminal' })
+  for (const key of SHARED) expect(await word.find({ type: 'Button', key })).toBeDefined()
+
+  // and the word game's field takes `m`, since its ring sits in the field and
+  // no letter reaches a hotkey there
+  await word.input({ key: 'guess', text: 'm' })
+  expect(await word.find({ type: 'Button', key: 'unmini' })).toBeDefined()
+  await word.unmount()
+})
